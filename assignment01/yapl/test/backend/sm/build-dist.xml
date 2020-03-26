@@ -29,7 +29,7 @@ M. Taschwer, March 2016
 	<target name="compile-java" depends="init"
         description="compile the sources" >
 		<javac srcdir="${src}" destdir="${build}" debug="on" includeantruntime="false">
-			<include name="yapl/impl/*.java"/>
+			<include name="yapl/yapl.impl/*.java"/>
 			<include name="yapl/interfaces/*.java"/>
 			<include name="yapl/test/backend/sm/*.java"/>
 		</javac>
