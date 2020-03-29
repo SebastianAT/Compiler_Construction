@@ -4,17 +4,25 @@ import yapl.interfaces.*;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 
 public class BackendMJ implements BackendBinSM {
 
-    private int pc = 0; //ProgrammCount
+    private int pc = 3; //ProgrammCount
     private int sc = 0; //StaticCount
-    private List<byte> sb = new ArrayList<byte>(); //StaticDataBytes
+    private int mainaddr = 3;
+    private ArrayList<Byte> sb; //StaticDataBytes
+    private HashMap<String, Integer> labels;
 
+    public BackendMJ() {
+        labels = new HashMap<String, Integer>();
+        sb = new ArrayList<Byte>();
+    }
 
     @Override
     public int wordSize() {
@@ -29,11 +37,55 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void assignLabel(String label) {
-
+        if (!labels.containsKey(label)) {
+            labels.put(label, pc);
+        } else {
+            //Label is already used
+        }
     }
 
     @Override
     public void writeObjectFile(OutputStream outStream) throws IOException {
+        int pos = 2;
+        byte[] bytes = new byte[10 + pc + sc];
+        bytes[0] = (byte) 'M';
+        bytes[1] = (byte) 'J';
+        byte[] pcb = BigInteger.valueOf(pc).toByteArray();
+        byte[] scb = BigInteger.valueOf(sc).toByteArray();
+        if (pcb.length > 4 || scb.length > 4) {
+            //Programm counter or static data counter too high
+        } else {
+            for (int i = 0; i < pcb.length; i++) {
+                bytes[pos + 3 - i] = pcb[pcb.length - i - 1];
+            }
+            pos += 4;
+            for (int i = 0; i < scb.length; i++) {
+                bytes[pos + 3 - i] = scb[scb.length - i - 1];
+            }
+            pos += 4;
+        }
+        if (BigInteger.valueOf(mainaddr).toByteArray().length > 2) {
+            //throw error
+        } else {
+            bytes[pos] = (byte) 39;
+            if (BigInteger.valueOf(mainaddr).toByteArray().length == 2) {
+                bytes[pos + 1] = BigInteger.valueOf(mainaddr).toByteArray()[1];
+            }
+            bytes[pos + 2] = BigInteger.valueOf(mainaddr).toByteArray()[0];
+            pos += 3;
+        }
+
+
+        //todo: convert pc into bytes
+
+        for (int i = 0; i < sb.size(); i++) {
+            bytes[pos + i] = sb.get(i);
+        }
+        if (pos == (10 + pc + sc)) {
+            //throw error
+        } else {
+            outStream.write(bytes);
+        }
 
     }
 
@@ -47,7 +99,7 @@ public class BackendMJ implements BackendBinSM {
     public int allocStringConstant(String string) {
         int addr = allocStaticData(string.length() + 1);
         byte[] sbytes = string.getBytes();
-        for(byte b:sbytes) sb.add(b);
+        for (byte b : sbytes) sb.add(b);
         sb.add((byte) 0);
         return addr;
     }
@@ -197,7 +249,16 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void enterProc(String label, int nParams, boolean main) {
-
+        if (!labels.containsKey(label)) {
+            labels.put(label, pc);
+            if (main) {
+                mainaddr = pc;
+            } else {
+                //todo: generate procedure stack
+            }
+        } else {
+            //Label is already used
+        }
     }
 
     @Override
