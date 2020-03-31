@@ -13,20 +13,28 @@ import java.util.List;
 
 public class BackendMJ implements BackendBinSM {
 
-    private int pc = 3; //ProgrammCount
-    private int sc = 0; //StaticCount
-    private int mainaddr = 3;
+    private int mainaddr = 0;
+    private int inception = -1; //free local word inception
+    private ArrayList<Byte> cb; //CodeBytes
     private ArrayList<Byte> sb; //StaticDataBytes
     private HashMap<String, Integer> labels;
+    private HashMap<String, List<Integer>> backpatching;
+    private ArrayList<Integer> flsp; //free local space pointer - is needed for allocating local variables
+    private ArrayList<Integer> cfs; //current frame size - is needed for method @paramOffset
+
 
     public BackendMJ() {
         labels = new HashMap<String, Integer>();
+        backpatching = new HashMap<String, List<Integer>>();
+        cb = new ArrayList<Byte>();
         sb = new ArrayList<Byte>();
+        flsp = new ArrayList<Integer>();
+        cfs = new ArrayList<Integer>();
     }
 
     @Override
     public int wordSize() {
-        return 0 /*System.getProperty("sun.arch.data.model")*/;
+        return 4;
     }
 
     @Override
@@ -38,7 +46,14 @@ public class BackendMJ implements BackendBinSM {
     @Override
     public void assignLabel(String label) {
         if (!labels.containsKey(label)) {
-            labels.put(label, pc);
+            labels.put(label, cb.size());
+            if (backpatching.containsKey(label)) {
+                for (int addr : backpatching.get(label)) {
+                    byte base = (byte) 0xFF;
+                    cb.set(addr, (byte) ((base << 8) & cb.size()));
+                    cb.set(addr + 1, (byte) (base & cb.size()));
+                }
+            }
         } else {
             //Label is already used
         }
@@ -46,73 +61,53 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void writeObjectFile(OutputStream outStream) throws IOException {
-        int pos = 2;
-        byte[] bytes = new byte[10 + pc + sc];
-        bytes[0] = (byte) 'M';
-        bytes[1] = (byte) 'J';
-        byte[] pcb = BigInteger.valueOf(pc).toByteArray();
-        byte[] scb = BigInteger.valueOf(sc).toByteArray();
-        if (pcb.length > 4 || scb.length > 4) {
-            //Programm counter or static data counter too high
-        } else {
-            for (int i = 0; i < pcb.length; i++) {
-                bytes[pos + 3 - i] = pcb[pcb.length - i - 1];
-            }
-            pos += 4;
-            for (int i = 0; i < scb.length; i++) {
-                bytes[pos + 3 - i] = scb[scb.length - i - 1];
-            }
-            pos += 4;
-        }
-        if (BigInteger.valueOf(mainaddr).toByteArray().length > 2) {
-            //throw error
-        } else {
-            bytes[pos] = (byte) 39;
-            if (BigInteger.valueOf(mainaddr).toByteArray().length == 2) {
-                bytes[pos + 1] = BigInteger.valueOf(mainaddr).toByteArray()[1];
-            }
-            bytes[pos + 2] = BigInteger.valueOf(mainaddr).toByteArray()[0];
-            pos += 3;
+        outStream.write('M');
+        outStream.write('J');
+        outStream.write(generate4ByteArray(cb.size()));
+        outStream.write(generate4ByteArray(sb.size()/wordSize()));
+        outStream.write(generate4ByteArray(mainaddr));
+
+        for(Byte b : cb){
+            outStream.write(b);
         }
 
-
-        //todo: convert pc into bytes
-
-        for (int i = 0; i < sb.size(); i++) {
-            bytes[pos + i] = sb.get(i);
+        for (Byte b : sb) {
+            outStream.write(b);
         }
-        if (pos == (10 + pc + sc)) {
-            //throw error
-        } else {
-            outStream.write(bytes);
-        }
-
     }
 
     @Override
     public int allocStaticData(int words) {
-        sc += words;
-        return sc - words;
+        int addr = sb.size();
+        for (int i = 0; i < words * wordSize(); i++) {
+            sb.add((byte) 0);
+        }
+        return addr;
     }
 
     @Override
     public int allocStringConstant(String string) {
-        int addr = allocStaticData(string.length() + 1);
+        int words = 0;
+        while (string.length() + 1 > words * 4) words++;
+        int addr = allocStaticData(words);
         byte[] sbytes = string.getBytes();
-        for (byte b : sbytes) sb.add(b);
-        sb.add((byte) 0);
+        for (int i = 0; i < sbytes.length; i++) {
+            sb.set(addr + i, sbytes[i]);
+        }
         return addr;
     }
 
     @Override
     public int allocStack(int words) {
-        //
-        return 0;
+        int addr = flsp.get(inception);
+        flsp.set(inception, addr + words);
+        return addr;
     }
 
     @Override
     public void allocHeap(int words) {
-        //0x1F XX XX: allocate space on heap with size XX XX
+        putBytes(31, 1);
+        putBytes(words, 2);
     }
 
     @Override
@@ -127,79 +122,116 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void loadConst(int value) {
-        //0x0F - 0x14 : Const 0-5
-        //0x15 : -1
-        //0x16 XX XX XX XX : Cont with value XX XX XX XX
+        if (value <= 5 && value >= 0) {
+            putBytes(15 + value, 1);
+        } else if (value == -1) {
+            putBytes(21, 1);
+        } else {
+            putBytes(22, 1);
+            putBytes(value, 4);
+        }
     }
 
     @Override
     public void loadWord(MemoryRegion region, int offset) {
-        //0x21
+        if (region.equals(MemoryRegion.STACK)) {
+            if (offset < 0) {
+                //error
+            } else if (offset <= 3) {
+                putBytes(2 + offset, 1);
+            } else {
+                putBytes(1, 1);
+                putBytes(offset, 1);
+            }
+        } else if (region.equals(MemoryRegion.STATIC)) {
+            putBytes(11, 1);
+            putBytes(offset, 2);
+        } else {
+            putBytes(13, 1);
+            putBytes(offset, 2);
+        }
     }
 
     @Override
     public void storeWord(MemoryRegion region, int offset) {
-        //0x22
+        if (region.equals(MemoryRegion.STACK)) {
+            if (offset < 0) {
+                //error
+            } else if (offset <= 3) {
+                putBytes(7 + offset, 1);
+            } else {
+                putBytes(6, 1);
+                putBytes(offset, 1);
+            }
+        } else if (region.equals(MemoryRegion.STATIC)) {
+            putBytes(12, 1);
+            putBytes(offset, 2);
+        } else {
+            putBytes(14, 1);
+            putBytes(offset, 2);
+        }
     }
 
     @Override
     public void loadArrayElement() {
-
+        putBytes(33, 1);
     }
 
     @Override
     public void storeArrayElement() {
-
+        putBytes(34, 1);
     }
 
     @Override
     public void arrayLength() {
-
+        putBytes(37, 1);
     }
 
     @Override
     public void writeInteger() {
-
+        putBytes(51, 1);
     }
 
     @Override
     public void writeString(int addr) {
-
+        putBytes(55, 1);
+        putBytes(addr, 2);
     }
 
     @Override
     public void neg() {
-        //0x1C
+        putBytes(28, 1);
     }
 
     @Override
     public void add() {
-        //0x17
+        putBytes(23, 1);
     }
 
     @Override
     public void sub() {
-        //0x18
+        putBytes(24, 1);
     }
 
     @Override
     public void mul() {
-        //0x19
+        putBytes(25, 1);
     }
 
     @Override
     public void div() {
-        //0x1A
+        putBytes(26, 1);
     }
 
     @Override
     public void mod() {
-        //0x1B
+        putBytes(27, 1);
     }
 
     @Override
     public void and() {
-        //Idee: Zuerst add und dann shift right
+        add();
+        putBytes(30, 1);
     }
 
     @Override
@@ -209,65 +241,122 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void isEqual() {
-
+        putBytes(40, 1);
+        decisionJump();
     }
 
     @Override
     public void isLess() {
-
+        putBytes(42, 1);
+        decisionJump();
     }
 
     @Override
     public void isLessOrEqual() {
-
+        putBytes(43, 1);
+        decisionJump();
     }
 
     @Override
     public void isGreater() {
-
+        putBytes(44, 1);
+        decisionJump();
     }
 
     @Override
     public void isGreaterOrEqual() {
-
+        putBytes(45, 1);
+        decisionJump();
     }
 
     @Override
     public void branchIf(boolean value, String label) {
-
+        loadConst(1);
+        putBytes(40, 1);
+        int addr = getAddr(label);
+        putBytes(addr, 2);
     }
 
     @Override
     public void jump(String label) {
-
+        putBytes(39, 1);
+        int addr = getAddr(label);
+        putBytes(addr, 2);
     }
 
     @Override
     public void callProc(String label) {
-
+        putBytes(46, 1); //Call
+        int addr = getAddr(label);
+        putBytes(addr, 2);
     }
 
     @Override
     public void enterProc(String label, int nParams, boolean main) {
-        if (!labels.containsKey(label)) {
-            labels.put(label, pc);
-            if (main) {
-                mainaddr = pc;
-            } else {
-                //todo: generate procedure stack
-            }
-        } else {
-            //Label is already used
+        if (main) {
+            mainaddr = cb.size();
         }
+        assignLabel(label);
+        putBytes(48, 1);
+        putBytes(nParams, 1);
+        //Todo: how big is the frame size? backpacking for framesize at loadword/storeword
+        putBytes(nParams + 20, 1); //atm 5 local variables
+        flsp.add(nParams);
+        cfs.add(nParams + 20); //atm 5 local variables
+        inception++;
     }
 
     @Override
     public void exitProc(String label) {
+        assignLabel(label + "_end");
+        putBytes(49, 1);
+        putBytes(47, 1);
+        flsp.remove(inception);
+        cfs.remove(inception);
+        inception--;
 
     }
 
     @Override
     public int paramOffset(int index) {
-        return 0;
+        return index + cfs.get(inception);
+    }
+
+    private static byte[] generate4ByteArray(int value) {
+        byte[] b = new byte[4];
+        for (int i = 0; i < 4; i++) {
+            int offset = (b.length - 1 - i) * 8;
+            b[i] = (byte) ((value >>> offset) & 0xFF);
+        }
+        return b;
+    }
+
+    private void backpatch(String label, int addr) {
+        if (!backpatching.containsKey(label))
+            backpatching.put(label, new ArrayList<Integer>());
+        backpatching.get(label).add(addr);
+    }
+
+    private int getAddr(String label) {
+        if (!labels.containsKey(label)) {
+            backpatch(label, cb.size());
+            return 0;
+        }
+        return labels.get(label);
+    }
+
+    private void putBytes(int value, int fixsize) {
+        byte[] b = generate4ByteArray(value);
+        for (int i = b.length - fixsize; i < b.length; i++) {
+            cb.add(b[i]);
+        }
+    }
+
+    private void decisionJump() {
+        putBytes(cb.size() + 6, 2);
+        loadConst(0);
+        putBytes(39, 1);
+        putBytes(cb.size() + 3, 2);
+        loadConst(1);
     }
 }
