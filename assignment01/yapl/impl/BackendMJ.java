@@ -14,13 +14,14 @@ import java.util.List;
 public class BackendMJ implements BackendBinSM {
 
     private int mainaddr = 0;
+    private int dimcounter = 0;
     private int inception = -1; //free local word inception
     private ArrayList<Byte> cb; //CodeBytes
     private ArrayList<Byte> sb; //StaticDataBytes
     private HashMap<String, Integer> labels;
     private HashMap<String, List<Integer>> backpatching;
     private ArrayList<Integer> flsp; //free local space pointer - is needed for allocating local variables
-    private ArrayList<Integer> cfs; //current frame size - is needed for method @paramOffset
+    private ArrayList<Integer> dimaddr; //stores the adresses to the dimension lengths
 
 
     public BackendMJ() {
@@ -29,7 +30,7 @@ public class BackendMJ implements BackendBinSM {
         cb = new ArrayList<Byte>();
         sb = new ArrayList<Byte>();
         flsp = new ArrayList<Integer>();
-        cfs = new ArrayList<Integer>();
+        dimaddr = new ArrayList<Integer>();
     }
 
     @Override
@@ -78,7 +79,7 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public int allocStaticData(int words) {
-        int addr = sb.size();
+        int addr = sb.size()/wordSize();
         for (int i = 0; i < words * wordSize(); i++) {
             sb.add((byte) 0);
         }
@@ -92,7 +93,7 @@ public class BackendMJ implements BackendBinSM {
         int addr = allocStaticData(words);
         byte[] sbytes = string.getBytes();
         for (int i = 0; i < sbytes.length; i++) {
-            sb.set(addr + i, sbytes[i]);
+            sb.set(addr*wordSize() + i, sbytes[i]);
         }
         return addr;
     }
@@ -112,12 +113,20 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void storeArrayDim(int dim) {
-
+        if(dim != dimaddr.size()){
+            //throw error
+        }else{
+            dimaddr.add(allocStaticData(1));
+            storeWord(MemoryRegion.STATIC, dimaddr.get(dimaddr.size()-1));
+        }
     }
 
     @Override
     public void allocArray() {
-        //0x20
+        loadWord(MemoryRegion.STATIC,dimaddr.get(0));
+        dimaddr.remove(0);
+        putBytes(32,1);
+        putBytes(1,1);
     }
 
     @Override
@@ -189,6 +198,7 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void writeInteger() {
+        loadConst(0);
         putBytes(51, 1);
     }
 
@@ -271,7 +281,7 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void branchIf(boolean value, String label) {
-        loadConst(1);
+        loadConst(boolValue(value));
         putBytes(40, 1);
         int addr = getAddr(label);
         putBytes(addr, 2);
@@ -302,24 +312,22 @@ public class BackendMJ implements BackendBinSM {
         //Todo: how big is the frame size? backpacking for framesize at loadword/storeword
         putBytes(nParams + 20, 1); //atm 5 local variables
         flsp.add(nParams);
-        cfs.add(nParams + 20); //atm 5 local variables
         inception++;
     }
 
     @Override
     public void exitProc(String label) {
-        assignLabel(label + "_end");
+        assignLabel(label);
         putBytes(49, 1);
         putBytes(47, 1);
         flsp.remove(inception);
-        cfs.remove(inception);
         inception--;
 
     }
 
     @Override
     public int paramOffset(int index) {
-        return index + cfs.get(inception);
+        return index;
     }
 
     private static byte[] generate4ByteArray(int value) {
