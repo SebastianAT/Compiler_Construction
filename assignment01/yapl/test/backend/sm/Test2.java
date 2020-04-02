@@ -31,7 +31,7 @@ public class Test2
         backend.loadConst(7);
         backend.callProc("writeint");
         backend.exitProc("main_end");
-        
+
         backend.writeObjectFile(new FileOutputStream(args[0]));
         System.out.println("wrote object file to " + args[0]);
     }
