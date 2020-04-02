@@ -4,8 +4,6 @@ import yapl.interfaces.*;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -241,12 +239,15 @@ public class BackendMJ implements BackendBinSM {
     @Override
     public void and() {
         add();
+        loadConst(1);
         putBytes(30, 1);
     }
 
     @Override
     public void or() {
-        // Geht das umsetzen ohne IF?
+        add();
+        loadConst(1);
+        isGreaterOrEqual();
     }
 
     @Override
@@ -310,7 +311,7 @@ public class BackendMJ implements BackendBinSM {
         putBytes(48, 1);
         putBytes(nParams, 1);
         //Todo: how big is the frame size? backpacking for framesize at loadword/storeword
-        putBytes(nParams + 20, 1); //atm 5 local variables
+        putBytes(nParams + 20, 1); //atm 20 local variables
         flsp.add(nParams);
         inception++;
     }

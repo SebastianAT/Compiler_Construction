@@ -22,7 +22,7 @@ public class Test_custom02
         backend.enterProc("main", 0, true);
         backend.loadConst(3);
         backend.loadConst(3);
-        backend.isEqual();
+        backend.isEqual();      //todo: add constants for each conditional jump
         backend.isLessOrEqual();
         backend.writeInteger();
         backend.loadConst(2);

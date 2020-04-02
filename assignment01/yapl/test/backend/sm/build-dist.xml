@@ -6,13 +6,13 @@ M. Taschwer, March 2016
 	
     <!-- customize to your environment -->
 	<property name="globalbasedir" location="../../../../.."/>
-	<property name="src" location="${globalbasedir}/src"/>
+	<property name="src" location="${globalbasedir}/assignment01"/>
 	<property name="build" location="${globalbasedir}/ant-bin"/>
     <property name="ant-contrib-jar" location="${globalbasedir}/lib/ant-contrib.jar"/>
     <property name="mj-jar" location="${globalbasedir}/mjvm/mj.jar"/>
     
     <!-- list of Java test classes -->
-    <property name="testclasses" value="Test1,Test2,Test3,Test4,Test5,Test6"/>
+    <property name="testclasses" value="Test1,Test2,Test3,Test4,Test5,Test6,Test_Operations"/>
     
     <!-- properties for invoking 'eval' target directly -->
     <property name="mainclass" value="yapl.test.backend.sm.Test1"/>
