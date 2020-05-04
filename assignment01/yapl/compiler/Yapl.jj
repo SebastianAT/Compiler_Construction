@@ -1,0 +1,295 @@
+/* Copyright (c) 2006, Sun Microsystems, Inc.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the Sun Microsystems, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+PARSER_BEGIN(Yapl)
+package yapl.compiler;
+
+import yapl.ant.*;
+import yapl.compiler.*;
+import yapl.interfaces.*;
+import yapl.lib.*;
+
+/** Simple brace matcher. */
+public class  Yapl{
+
+  /** Main entry point. */
+  public static void main(String args[]) throws ParseException {
+      Yapl parser;
+
+      if(args.length == 0){
+            System.out.println ("Reading input ...");
+            parser = new Yapl(System.in);
+      }
+      else if(args.length == 1){
+            System.out.println ("Reading the file " + args[0] + " ..." );
+            try {
+              parser = new Yapl(new java.io.FileInputStream(args[0]));
+            }
+            catch(java.io.FileNotFoundException e) {
+              System.out.println ("The file " + args[0] + " was not found.");
+              return;
+            }
+      }
+	  
+	  /*else if(args.length == 2){
+		System.out.println ("Writing to log " + args[1] + " ..." );
+            try {
+              parser = new Yapl(new java.io.FileOutputStream(args[1]));
+            }
+            catch(java.io.FileNotFoundException e) {
+              System.out.println ("The file " + args[1] + " was not found.");
+              return;
+            }
+	  }*/
+      else {
+            System.out.println ("You must use one of the following:");
+            System.out.println ("         java <parsername>");
+            System.out.println ("Or");
+            System.out.println ("         java <parsername> file");
+            return ;
+      }
+      try {
+            parser.Start();
+            CompilerMessage.printOK("Yapl");
+      }
+      catch(ParseException e){
+            CompilerMessage.printError(e,"Yapl");
+      }
+      catch(TokenMgrError e){
+            CompilerMessage.printError(e,"Yapl");
+      }
+
+  }
+
+}
+
+PARSER_END(Yapl)
+
+// IGNORE WHITE SPACES
+SKIP:
+{
+    " " | "\n" | "\r" | "\t"
+}
+
+// Reuseable Default Token
+TOKEN : {
+<# LETTER: (["a"-"z", "A"-"Z", "_"])> |
+<# DIGIT: (["0"-"9"])> |
+<# OTHERCHAR: ("+" | "-" | "*" | "/" | "." | "," | ";" | ":" | "!" | "?" | "=" | "#" | "%" | "<" | ">" | "$" | "(" | ")" | "[" | "]" | "{" | "}" | "\\" | "@" | "&" | "^" | "|")>
+}
+
+// Keywords
+TOKEN : {
+    < TRUE : "True" > |
+    < FALSE : "False" > |
+    < AND: "And" > |
+    < NEW: "new" > |
+    < OR: "Or" > |
+    < IF : "If" > |
+    < THEN : "Then" > |
+    < ELSE : "Else" > |
+    < ENDIF : "EndIf" > |
+    < WHILE : "While" > |
+    < DO : "Do" > |
+    < ENDWHILE : "EndWhile" > |
+    < RETURN : "Return" > |
+    < WRITE : "Write" > |
+    < BEGIN : "Begin" > |
+    < END: "End" > |
+    < INTEGER :  "int" > |
+    < BOOLEAN : "bool" > |
+    < VOID : "void" > |
+    < CONST : "Const" > |
+    < RECORD : "Record" > |
+    < ENDRECORD : "EndRecord" > |
+    < DECLARE : "Declare" > |
+    < PROCEDURE : "Procedure" > |
+    < PROGRAM : "Program" > |
+    < IDENT : < LETTER > (< LETTER > | < DIGIT >)* > |
+    < NUMBER: (< DIGIT >)+ > |
+    < STRING: "\"" ( " " | < LETTER > | < DIGIT > | < OTHERCHAR > )* "\"" > |
+	< GREATER_EQUAL: ">=" > |
+	< LESS_EQUAL: "<=" > |
+	< LESS: "<" > |
+	< GREATER: ">" > |
+	< EQUAL: "==" > |
+	< UNEQUAL: "!=" > |
+	< ASSIGN: ":=" > 
+}
+
+// Special Token for Comments
+SPECIAL_TOKEN : {
+    < COMMENT : ("/*" (~["*"] | "*" ~["/"])* "*/") >
+}
+
+// OPERATIONS
+/*void RelOP() : {Token t;}{
+    t = "<" | t = "<=" | t = ">=" | t = ">"
+}
+void EqualOP() : {Token t;}{
+    t = "==" | t = "!="
+}*/
+void AddOP() : {Token t;}{
+    t = "+" | t = "-"
+}
+void MulOP() : {Token t;}{
+    t = "*" | t = "/" | t = "%"
+}
+
+
+// Corrected ?
+// Corrected ?
+void RelOP() : {Token t;}{
+    t = <LESS> | t = <LESS_EQUAL> | t = <GREATER_EQUAL> | t = <GREATER>
+}
+void EqualOP() : {Token t;}{
+    t = <EQUAL> | t = <UNEQUAL>
+}
+
+
+// EXPRESSIONS
+void Literal() : {Token t;}{
+    t = <TRUE> | t = <FALSE> | <NUMBER>
+}
+void Selector() : {Token t;}{
+    ( "[" Expr() "]" | "." <IDENT> )[Selector()]
+}
+void ArrayLen() : {Token t;}{
+    "#" <IDENT> [Selector() ]
+}
+void PrimaryExpr() : {Token t;}{
+    Literal() | "(" Expr() ")" | LOOKAHEAD(2) ProcedureCall() | <IDENT>  [Selector()] | ArrayLen()
+}
+void UnaryExpr() : {Token t;}{
+    [AddOP() ] PrimaryExpr()
+}
+void MulExpr() :{Token t;}{
+    UnaryExpr()  (MulOP()  UnaryExpr() )*
+}
+void AddExpr() : {Token t;}{
+    MulExpr() (AddOP() MulExpr() )*
+}
+void RelExpr() : {Token t;}{
+    AddExpr() [RelOP() AddExpr() ]
+}
+void EqualExpr() : {Token t;}{
+    RelExpr() [EqualOP() RelExpr() ]
+}
+void CondAndExpr() : {Token t;}{
+    EqualExpr() (<AND> EqualExpr() )*
+}
+void CreationExpr() : {Token t;}{
+    <NEW> NonArrayType() ("[" Expr() "]")*
+}
+void Expr() : {Token t;}{
+    CondAndExpr() (<OR> CondAndExpr() )* | CreationExpr()
+}
+
+//Statements
+void ArgumentList() : {Token t;}{
+    Expr() ("," Expr() )*
+}
+void ProcedureCall() : {Token t;}{
+    <IDENT> "(" [ArgumentList() ] ")"
+}
+/*void Assignment() : {Token t;}{
+    <IDENT> [Selector() ] ":=" Expr()
+}*/
+
+void Assignment() : {Token t;}{
+    <IDENT> [Selector() ] <ASSIGN> Expr()
+}
+
+
+void IfStatement() : {Token t;}{
+    <IF> Expr() <THEN> StatementList() [<ELSE> StatementList()] <ENDIF>
+}
+void WhileStatement() : {Token t;}{
+    <WHILE> Expr() <DO> StatementList() <ENDWHILE>
+}
+void ReturnStatement() : {Token t;}{
+    <RETURN> [Expr() ]
+}
+void WriteStatement() : {Token t;}{
+    <WRITE> <STRING>
+}
+void Statement() : {Token t;}{
+    IfStatement() | WhileStatement() | ReturnStatement() | WriteStatement() | LOOKAHEAD(2) Assignment() | ProcedureCall() | Block()
+}
+void StatementList() : {Token t;}{
+    (Statement() ";")*
+}
+void Block() : {Token t;}{
+    [Decl()] <BEGIN> StatementList() <END>
+}
+
+//TYPES
+void NonArrayType() : {Token t;}{
+    <INTEGER>  | <BOOLEAN> | <IDENT>
+}
+void Type() :{Token t;}{
+    NonArrayType() ("[" "]")*
+}
+void ReturnType() : {Token t;}{
+    <VOID> | Type()
+}
+
+//DECLARATIONS
+void ConstDecl() : {Token t;}{
+    <CONST> <IDENT> "=" Literal() ";"
+}
+void VarDecl() : {Token t;}{
+    Type() <IDENT> ("," <IDENT> )* ";"
+}
+void TypeDecl() : {Token t;}{
+    <RECORD> <IDENT> VarDecl() (VarDecl() )* <ENDRECORD> ";"
+}
+void Decl() : {Token t;}{
+    <DECLARE> (ConstDecl() |VarDecl() | TypeDecl() )*
+}
+
+//PARAMETERS
+void FormalParam() : {Token t; }{
+    Type() <IDENT>
+}
+void FormalParamList() : {Token t;}{
+    FormalParam() ("," FormalParam() )*
+}
+
+void Procedure() : {Token t;}{
+    <PROCEDURE> ReturnType() <IDENT> "(" [FormalParamList()]  ")" Block() <IDENT> ";"
+}
+void Program() : {Token t;}{
+    <PROGRAM> <IDENT> (Decl() | Procedure() )* <BEGIN> StatementList() <END> <IDENT> "."
+}
+
+/** Root production. */
+void Start() : { Token t; } {
+    (Program())*
+      <EOF>
+}

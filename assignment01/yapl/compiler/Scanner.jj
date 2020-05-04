@@ -1,0 +1,143 @@
+/* Copyright (c) 2006, Sun Microsystems, Inc.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the Sun Microsystems, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+PARSER_BEGIN(Scanner)
+package yapl.compiler;
+
+import yapl.ant.*;
+import yapl.compiler.*;
+import yapl.interfaces.*;
+import yapl.lib.*;
+
+/** Simple brace matcher. */
+public class Scanner {
+
+  /** Main entry point. */
+  public static void main(String args[]) throws ParseException {
+      Scanner parser;
+
+      if(args.length == 0){
+            System.out.println ("Reading input ...");
+            parser = new Scanner(System.in);
+      }
+      else if(args.length == 1){
+            System.out.println ("Reading the file " + args[0] + " ..." );
+            try {
+              parser = new Scanner(new java.io.FileInputStream(args[0]));
+            }
+            catch(java.io.FileNotFoundException e) {
+              System.out.println ("The file " + args[0] + " was not found.");
+              return;
+            }
+      }
+      else {
+            System.out.println ("You must use one of the following:");
+            System.out.println ("         java <parsername> < file");
+            System.out.println ("Or");
+            System.out.println ("         java <parsername> file");
+            return ;
+      }
+      try {
+            parser.Start();
+            System.out.println ("The input was readed sucessfully.");
+      }
+      catch(ParseException e){
+            System.out.println ("There was an error during the parse.");
+            System.out.println (e.getMessage());
+      }
+      catch(TokenMgrError e){
+            System.out.println ("There was an error.");
+            System.out.println (e.getMessage());
+      }
+
+  }
+
+}
+
+PARSER_END(Scanner)
+
+// IGNORE WHITE SPACES
+SKIP:
+{
+    " " | "\n" | "\r" | "\t"
+}
+
+// Reuseable Default Token
+TOKEN : {
+<LETTER: (["a"-"z", "A"-"Z", "_"])> |
+<DIGIT: (["0"-"9"])> |
+<OTHERCHAR: ("+" | "-" | "*" | "/" | "." | "," | ";" | ":" | "!" | "?" | "=" | "#" | "%" | "<" | ">" | "$" | "(" | ")" | "[" | "]" | "{" | "}" | "\\" | "@" | "&" | "^" | "|")>
+}
+
+// Keywords
+TOKEN : {
+    < TRUE : "True" > |
+    < FALSE : "False" > |
+    < AND: "And" > |
+    < NEW: "new" > |
+    < OR: "Or" > |
+    < IF : "If" > |
+    < THEN : "Then" > |
+    < ELSE : "Else" > |
+    < ENDIF : "EndIf" > |
+    < WHILE : "While" > |
+    < DO : "Do" > |
+    < ENDWHILE : "EndWhile" > |
+    < RETURN : "Return" > |
+    < WRITE : "Write" > |
+    < BEGIN : "Begin" > |
+    < END: "End" > |
+    < INTEGER :  "int" > |
+    < BOOLEAN : "bool" > |
+    < VOID : "void" > |
+    < CONST : "Const" > |
+    < RECORD : "Record" > |
+    < ENDRECORD : "EndRecord" > |
+    < DECLARE : "Declare" > |
+    < PROCEDURE : "Procedure" > |
+    < PROGRAM : "Program" > |
+    < IDENT : < LETTER > (< LETTER > | < DIGIT >)* > |
+    < NUMBER: (< DIGIT >)+ > |
+    < STRING: "\"" ( " " | < LETTER > | < DIGIT > | < OTHERCHAR > )* "\"" >
+}
+
+// Special Token for Comments
+SPECIAL_TOKEN : {
+    < COMMENT : ("/*" (~["*"] | "*" ~["/"])* "*/") >
+}
+
+/** Root production. */
+void Start() : { Token t; } {
+    {
+    do {
+        t = getNextToken();
+        System.out.println(t.toString());
+    } while (t.kind != EOF);
+    }
+    <EOF>
+}
