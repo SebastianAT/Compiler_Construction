@@ -148,27 +148,17 @@ SPECIAL_TOKEN : {
 }
 
 // OPERATIONS
-/*void RelOP() : {Token t;}{
-    t = "<" | t = "<=" | t = ">=" | t = ">"
-}
-void EqualOP() : {Token t;}{
-    t = "==" | t = "!="
-}*/
-void AddOP() : {Token t;}{
-    t = "+" | t = "-"
-}
-void MulOP() : {Token t;}{
-    t = "*" | t = "/" | t = "%"
-}
-
-
-// Corrected ?
-// Corrected ?
 void RelOP() : {Token t;}{
     t = <LESS> | t = <LESS_EQUAL> | t = <GREATER_EQUAL> | t = <GREATER>
 }
 void EqualOP() : {Token t;}{
     t = <EQUAL> | t = <UNEQUAL>
+}
+void AddOP() : {Token t;}{
+    t = "+" | t = "-"
+}
+void MulOP() : {Token t;}{
+    t = "*" | t = "/" | t = "%"
 }
 
 
@@ -217,9 +207,6 @@ void ArgumentList() : {Token t;}{
 void ProcedureCall() : {Token t;}{
     <IDENT> "(" [ArgumentList() ] ")"
 }
-/*void Assignment() : {Token t;}{
-    <IDENT> [Selector() ] ":=" Expr()
-}*/
 
 void Assignment() : {Token t;}{
     <IDENT> [Selector() ] <ASSIGN> Expr()

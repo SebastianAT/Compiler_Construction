@@ -14,7 +14,7 @@ User-relevant properties: (customize to your environment)
   log         - file where compiler messages are written to
 	</description>
 
-	<property name="src" location="assignment01"/>
+	<property name="src" location="src"/>
 	<property name="build" location="ant-bin"/>
 	<property name="javacc" location="javacc"/>
 	<property name="ant-contrib" location="ant/ant-contrib.jar"/>
