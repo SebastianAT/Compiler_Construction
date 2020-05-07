@@ -1,0 +1,60 @@
+import yapl.interfaces.Symbol;
+
+import java.util.Hashtable;
+
+public class Scope {
+
+    private Scope parent;
+    private Symbol pSymbol;
+    private boolean isGlobal;
+
+    private Hashtable<String, Symbol> symbols = new Hashtable<String, Symbol>();
+
+    public Scope(){
+        this(null);
+    }
+
+    public Scope(Scope parent){
+        this.parent = parent;
+    }
+
+    public Scope getParent(){
+        return parent;
+    }
+
+    public Symbol getSymbol(String name){
+        if(symbols.containsKey(name)){
+            return symbols.get(name);
+        }
+
+        if(parent == null){
+            // exception
+        }
+        return parent.getSymbol(name);
+    }
+
+    public void addSymbol(Symbol symbol){
+        String name = symbol.getName();
+
+        if(symbols.containsKey(name)){
+            Symbol seekedSymbol = getSymbol(name);
+        }
+
+        symbols.put(name, symbol);
+        symbol.setGlobal(isGlobal);
+    }
+
+    public boolean isGlobal(){
+        return isGlobal;
+    }
+
+    public void setGlobal(boolean isGlobal){
+        this.isGlobal = isGlobal;
+    }
+
+    public void setpSymbol(Symbol pSymbol){
+        this.pSymbol = pSymbol;
+    }
+
+
+}
