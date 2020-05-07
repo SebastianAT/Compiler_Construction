@@ -31,12 +31,14 @@ package yapl.compiler;
 
 import yapl.ant.*;
 import yapl.compiler.*;
-import yapl.interfaces.*;
+import yapl.impl.YAPLSymbol;
+import yapl.impl.YAPLSymbolTable;import yapl.interfaces.*;
 import yapl.lib.*;
 
 /** Simple brace matcher. */
 public class  Yapl{
 
+    private static Symboltable symboltable = new YAPLSymbolTable();
   /** Main entry point. */
   public static void main(String args[]) throws ParseException {
       Yapl parser;
@@ -55,17 +57,6 @@ public class  Yapl{
               return;
             }
       }
-	  
-	  /*else if(args.length == 2){
-		System.out.println ("Writing to log " + args[1] + " ..." );
-            try {
-              parser = new Yapl(new java.io.FileOutputStream(args[1]));
-            }
-            catch(java.io.FileNotFoundException e) {
-              System.out.println ("The file " + args[1] + " was not found.");
-              return;
-            }
-	  }*/
       else {
             System.out.println ("You must use one of the following:");
             System.out.println ("         java <parsername>");
@@ -82,6 +73,9 @@ public class  Yapl{
       }
       catch(TokenMgrError e){
             CompilerMessage.printError(e,"Yapl");
+      }
+      catch(YAPLException e){
+          CompilerMessage.printError(e, "Yapl");
       }
 
   }
@@ -167,13 +161,31 @@ void Literal() : {Token t;}{
     t = <TRUE> | t = <FALSE> | <NUMBER>
 }
 void Selector() : {Token t;}{
-    ( "[" Expr() "]" | "." <IDENT> )[Selector()]
+    ( "[" Expr() "]" | "." t = <IDENT>
+    {
+        //TODO: Implement later, not needed in CA3
+    }
+    )[Selector()]
 }
 void ArrayLen() : {Token t;}{
-    "#" <IDENT> [Selector() ]
+    "#" t = <IDENT>
+    {
+        Symbol s = symboltable.lookup(t.image);
+        if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
+            //Todo: throw custom YAPLException
+        }
+    }
+    [Selector() ]
 }
 void PrimaryExpr() : {Token t;}{
-    Literal() | "(" Expr() ")" | LOOKAHEAD(2) ProcedureCall() | <IDENT>  [Selector()] | ArrayLen()
+    Literal() | "(" Expr() ")" | LOOKAHEAD(2) ProcedureCall() | t = <IDENT>
+    {
+        Symbol s = symboltable.lookup(t.image);
+        if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Constant && s.getKind() != Symbol.Parameter){
+            //Todo: throw custom YAPLException
+        }
+    }
+    [Selector()] | ArrayLen()
 }
 void UnaryExpr() : {Token t;}{
     [AddOP() ] PrimaryExpr()
@@ -205,11 +217,25 @@ void ArgumentList() : {Token t;}{
     Expr() ("," Expr() )*
 }
 void ProcedureCall() : {Token t;}{
-    <IDENT> "(" [ArgumentList() ] ")"
+    t = <IDENT>
+    {
+        Symbol s = symboltable.lookup(t.image);
+        if(s.getKind() != Symbol.Procedure){
+            //Todo: throw custom YAPLException
+        }
+    }
+     "(" [ArgumentList() ] ")"
 }
 
 void Assignment() : {Token t;}{
-    <IDENT> [Selector() ] <ASSIGN> Expr()
+    t = <IDENT>
+    {
+        Symbol s = symboltable.lookup(t.image);
+        if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
+            //Todo: throw custom YAPLException
+        }
+    }
+    [Selector() ] <ASSIGN> Expr()
 }
 
 
@@ -237,7 +263,13 @@ void Block() : {Token t;}{
 
 //TYPES
 void NonArrayType() : {Token t;}{
-    <INTEGER>  | <BOOLEAN> | <IDENT>
+    <INTEGER>  | <BOOLEAN> | t = <IDENT>
+    {
+        Symbol s = symboltable.lookup(t.image);
+        if(s.getKind() != Symbol.Typename){
+            //Todo: throw custom YAPLException
+        }
+    }
 }
 void Type() :{Token t;}{
     NonArrayType() ("[" "]")*
@@ -248,13 +280,34 @@ void ReturnType() : {Token t;}{
 
 //DECLARATIONS
 void ConstDecl() : {Token t;}{
-    <CONST> <IDENT> "=" Literal() ";"
+    <CONST> t = <IDENT>
+    {
+        Symbol s = new YAPLSymbol(t.image, Symbol.Constant);
+        s.setGlobal(true);
+        symboltable.addSymbol(s);
+    }
+    "=" Literal() ";"
 }
-void VarDecl() : {Token t;}{
-    Type() <IDENT> ("," <IDENT> )* ";"
+void VarDecl() : {Token t; Token t2;}{
+    Type() t = <IDENT>
+    {
+        Symbol s = new YAPLSymbol(t.image, Symbol.Variable);
+        symboltable.addSymbol(s);
+    }
+    ("," t2 = <IDENT>
+    {
+        Symbol s = new YAPLSymbol(t2.image, Symbol.Variable);
+        symboltable.addSymbol(s);
+    }
+    )* ";"
 }
 void TypeDecl() : {Token t;}{
-    <RECORD> <IDENT> VarDecl() (VarDecl() )* <ENDRECORD> ";"
+    <RECORD> t = <IDENT>
+    {
+        Symbol s = new YAPLSymbol(t.image, Symbol.Typename);
+        symboltable.addSymbol(s);
+    }
+    VarDecl() (VarDecl() )* <ENDRECORD> ";"
 }
 void Decl() : {Token t;}{
     <DECLARE> (ConstDecl() |VarDecl() | TypeDecl() )*
@@ -262,17 +315,36 @@ void Decl() : {Token t;}{
 
 //PARAMETERS
 void FormalParam() : {Token t; }{
-    Type() <IDENT>
+    Type() t = <IDENT>
 }
 void FormalParamList() : {Token t;}{
     FormalParam() ("," FormalParam() )*
 }
 
-void Procedure() : {Token t;}{
-    <PROCEDURE> ReturnType() <IDENT> "(" [FormalParamList()]  ")" Block() <IDENT> ";"
+void Procedure() : {Token t; Token x;}{
+    <PROCEDURE> ReturnType() t = <IDENT> "(" [FormalParamList()]  ")" Block() x = <IDENT>
+    {
+        if(!t.image.equals(x.image)){
+            //TODO: throw custom error
+        }
+    }
+    ";"
 }
-void Program() : {Token t;}{
-    <PROGRAM> <IDENT> (Decl() | Procedure() )* <BEGIN> StatementList() <END> <IDENT> "."
+void Program() : {Token t; Token x;}{
+    <PROGRAM> t = <IDENT>
+    {
+        Symbol s = new YAPLSymbol(t.image, Symbol.Program);
+        s.setGlobal(true);
+        symboltable.openScope(true);
+        symboltable.setParentSymbol(s);
+    }
+    (Decl() | Procedure() )* <BEGIN> StatementList() <END>  x = <IDENT>
+     {
+        if(!t.image.equals(x.image)){
+            //TODO: throw custom error
+        }
+     }
+     "."
 }
 
 /** Root production. */
