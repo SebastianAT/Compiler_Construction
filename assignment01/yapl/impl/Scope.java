@@ -1,3 +1,4 @@
+package yapl.impl;
 import yapl.interfaces.Symbol;
 
 import java.util.Hashtable;
@@ -28,7 +29,7 @@ public class Scope {
         }
 
         if(parent == null){
-            // exception
+            // TODO: throw new custom YAPLException
         }
         return parent.getSymbol(name);
     }
@@ -38,6 +39,7 @@ public class Scope {
 
         if(symbols.containsKey(name)){
             Symbol seekedSymbol = getSymbol(name);
+            // TODO: throw new custom YAPLException
         }
 
         symbols.put(name, symbol);
@@ -54,6 +56,12 @@ public class Scope {
 
     public void setpSymbol(Symbol pSymbol){
         this.pSymbol = pSymbol;
+    }
+
+    public Symbol getNearestParentSymbol(int kind){
+        if (pSymbol != null && pSymbol.getKind() == kind) return pSymbol;
+        if (parent == null) return null;
+        return parent.getNearestParentSymbol(kind);
     }
 
 

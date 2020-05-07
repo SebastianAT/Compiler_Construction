@@ -1,34 +1,37 @@
+package yapl.impl;
+
 import yapl.interfaces.Symbol;
-import yapl.interfaces.Type;
+import yapl.lib.Type;
 
 import javax.lang.model.type.ArrayType;
 
-public class Symbols implements Symbol {
+public class YAPLSymbol implements Symbol {
 
-    private Symbol symbol, nextSymbol;
+    private Symbol nextSymbol;
+    private int kind;
     private String name;
     private Type type;
     private boolean isReference, isGlobal, isReadonly, seen;
     private int offset;
 
-    public Symbols(String name, Symbol symbol){
+    public YAPLSymbol(String name, int kind){
         this.name = name;
-        setKind(symbol.getKind());
+        setKind(kind);
     }
 
     @Override
     public int getKind() {
-        return symbol.getKind();
+        return kind;
     }
 
     @Override
     public String getKindString() {
-        return symbol.getName();
+        return name;
     }
 
     @Override
     public void setKind(int kind) {
-        this.symbol = symbol;
+        this.kind = kind;
     }
 
     @Override
