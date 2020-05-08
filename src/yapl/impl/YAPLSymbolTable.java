@@ -1,5 +1,6 @@
 package yapl.impl;
 
+import yapl.exception.*;
 import yapl.interfaces.Symbol;
 import yapl.interfaces.Symboltable;
 import yapl.lib.YAPLException;
@@ -22,7 +23,7 @@ public class YAPLSymbolTable implements Symboltable {
     @Override
     public void addSymbol(Symbol s) throws YAPLException {
         if(s.getName() == null){
-            //TODO: throw error;
+            throw new SymbolNameNullException();
         }
         currentScope.addSymbol(s);
     }
@@ -30,7 +31,7 @@ public class YAPLSymbolTable implements Symboltable {
     @Override
     public Symbol lookup(String name) throws YAPLException {
         if(name == null){
-            //TODO: throw error;
+            throw new SymbolNameNullException();
         }
         return currentScope.getSymbol(name);
     }

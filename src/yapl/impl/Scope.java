@@ -1,5 +1,7 @@
 package yapl.impl;
+import yapl.exception.*;
 import yapl.interfaces.Symbol;
+import yapl.lib.YAPLException;
 
 import java.util.Hashtable;
 
@@ -23,23 +25,23 @@ public class Scope {
         return parent;
     }
 
-    public Symbol getSymbol(String name){
+    public Symbol getSymbol(String name) throws YAPLException {
         if(symbols.containsKey(name)){
             return symbols.get(name);
         }
 
         if(parent == null){
-            // TODO: throw new custom YAPLException
+            throw new IdentifierNotDeclaredException(name);
         }
         return parent.getSymbol(name);
     }
 
-    public void addSymbol(Symbol symbol){
+    public void addSymbol(Symbol symbol) throws YAPLException {
         String name = symbol.getName();
 
         if(symbols.containsKey(name)){
             Symbol seekedSymbol = getSymbol(name);
-            // TODO: throw new custom YAPLException
+            throw new SymbolAlreadyExistsException(seekedSymbol);
         }
 
         symbols.put(name, symbol);

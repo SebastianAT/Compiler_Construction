@@ -31,8 +31,10 @@ package yapl.compiler;
 
 import yapl.ant.*;
 import yapl.compiler.*;
+import yapl.exception.*;
 import yapl.impl.YAPLSymbol;
-import yapl.impl.YAPLSymbolTable;import yapl.interfaces.*;
+import yapl.impl.YAPLSymbolTable;
+import yapl.interfaces.*;
 import yapl.lib.*;
 
 /** Simple brace matcher. */
@@ -142,144 +144,144 @@ SPECIAL_TOKEN : {
 }
 
 // OPERATIONS
-void RelOP() : {Token t;}{
+void RelOP() throws YAPLException : {Token t;}{
     t = <LESS> | t = <LESS_EQUAL> | t = <GREATER_EQUAL> | t = <GREATER>
 }
-void EqualOP() : {Token t;}{
+void EqualOP() throws YAPLException : {Token t;}{
     t = <EQUAL> | t = <UNEQUAL>
 }
-void AddOP() : {Token t;}{
+void AddOP() throws YAPLException : {Token t;}{
     t = "+" | t = "-"
 }
-void MulOP() : {Token t;}{
+void MulOP() throws YAPLException : {Token t;}{
     t = "*" | t = "/" | t = "%"
 }
 
 
 // EXPRESSIONS
-void Literal() : {Token t;}{
+void Literal() throws YAPLException : {Token t;}{
     t = <TRUE> | t = <FALSE> | <NUMBER>
 }
-void Selector() : {Token t;}{
+void Selector() throws YAPLException : {Token t;}{
     ( "[" Expr() "]" | "." t = <IDENT>
     {
         //TODO: Implement later, not needed in CA3
     }
     )[Selector()]
 }
-void ArrayLen() : {Token t;}{
+void ArrayLen() throws YAPLException : {Token t;}{
     "#" t = <IDENT>
     {
-        Symbol s = symboltable.lookup(t.image);
-        if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
-            //Todo: throw custom YAPLException
-        }
+    Symbol s = symboltable.lookup(t.image);
+    if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
+        throw new SymbolIllegalUseException(s);
     }
+}
     [Selector() ]
 }
-void PrimaryExpr() : {Token t;}{
+void PrimaryExpr() throws YAPLException : {Token t;}{
     Literal() | "(" Expr() ")" | LOOKAHEAD(2) ProcedureCall() | t = <IDENT>
     {
-        Symbol s = symboltable.lookup(t.image);
-        if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Constant && s.getKind() != Symbol.Parameter){
-            //Todo: throw custom YAPLException
-        }
+    Symbol s = symboltable.lookup(t.image);
+    if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Constant && s.getKind() != Symbol.Parameter){
+        throw new SymbolIllegalUseException(s);
     }
+}
     [Selector()] | ArrayLen()
 }
-void UnaryExpr() : {Token t;}{
+void UnaryExpr() throws YAPLException : {Token t;}{
     [AddOP() ] PrimaryExpr()
 }
-void MulExpr() :{Token t;}{
+void MulExpr() throws YAPLException :{Token t;}{
     UnaryExpr()  (MulOP()  UnaryExpr() )*
 }
-void AddExpr() : {Token t;}{
+void AddExpr() throws YAPLException : {Token t;}{
     MulExpr() (AddOP() MulExpr() )*
 }
-void RelExpr() : {Token t;}{
+void RelExpr() throws YAPLException : {Token t;}{
     AddExpr() [RelOP() AddExpr() ]
 }
-void EqualExpr() : {Token t;}{
+void EqualExpr() throws YAPLException : {Token t;}{
     RelExpr() [EqualOP() RelExpr() ]
 }
-void CondAndExpr() : {Token t;}{
+void CondAndExpr() throws YAPLException : {Token t;}{
     EqualExpr() (<AND> EqualExpr() )*
 }
-void CreationExpr() : {Token t;}{
+void CreationExpr() throws YAPLException : {Token t;}{
     <NEW> NonArrayType() ("[" Expr() "]")*
 }
-void Expr() : {Token t;}{
+void Expr() throws YAPLException : {Token t;}{
     CondAndExpr() (<OR> CondAndExpr() )* | CreationExpr()
 }
 
 //Statements
-void ArgumentList() : {Token t;}{
+void ArgumentList() throws YAPLException : {Token t;}{
     Expr() ("," Expr() )*
 }
-void ProcedureCall() : {Token t;}{
+void ProcedureCall() throws YAPLException : {Token t;}{
     t = <IDENT>
     {
-        Symbol s = symboltable.lookup(t.image);
-        if(s.getKind() != Symbol.Procedure){
-            //Todo: throw custom YAPLException
-        }
+    Symbol s = symboltable.lookup(t.image);
+    if(s.getKind() != Symbol.Procedure){
+        throw new SymbolIllegalUseException(s);
     }
+}
      "(" [ArgumentList() ] ")"
 }
 
-void Assignment() : {Token t;}{
+void Assignment() throws YAPLException : {Token t;}{
     t = <IDENT>
     {
-        Symbol s = symboltable.lookup(t.image);
-        if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
-            //Todo: throw custom YAPLException
-        }
+    Symbol s = symboltable.lookup(t.image);
+    if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
+        throw new SymbolIllegalUseException(s);
     }
+}
     [Selector() ] <ASSIGN> Expr()
 }
 
 
-void IfStatement() : {Token t;}{
+void IfStatement() throws YAPLException : {Token t;}{
     <IF> Expr() <THEN> StatementList() [<ELSE> StatementList()] <ENDIF>
 }
-void WhileStatement() : {Token t;}{
+void WhileStatement() throws YAPLException : {Token t;}{
     <WHILE> Expr() <DO> StatementList() <ENDWHILE>
 }
-void ReturnStatement() : {Token t;}{
+void ReturnStatement() throws YAPLException : {Token t;}{
     <RETURN> [Expr() ]
 }
-void WriteStatement() : {Token t;}{
+void WriteStatement() throws YAPLException : {Token t;}{
     <WRITE> <STRING>
 }
-void Statement() : {Token t;}{
+void Statement() throws YAPLException : {Token t;}{
     IfStatement() | WhileStatement() | ReturnStatement() | WriteStatement() | LOOKAHEAD(2) Assignment() | ProcedureCall() | Block()
 }
-void StatementList() : {Token t;}{
+void StatementList() throws YAPLException : {Token t;}{
     (Statement() ";")*
 }
-void Block() : {Token t;}{
+void Block() throws YAPLException : {Token t;}{
     [Decl()] <BEGIN> StatementList() <END>
 }
 
 //TYPES
-void NonArrayType() : {Token t;}{
+void NonArrayType() throws YAPLException : {Token t;}{
     <INTEGER>  | <BOOLEAN> | t = <IDENT>
     {
-        Symbol s = symboltable.lookup(t.image);
-        if(s.getKind() != Symbol.Typename){
-            //Todo: throw custom YAPLException
-        }
+    Symbol s = symboltable.lookup(t.image);
+    if(s.getKind() != Symbol.Typename){
+        throw new NonArrayTypeException(s.getKind(), Symbol.Typename);
+    }
     }
 }
-void Type() :{Token t;}{
+void Type() throws YAPLException :{Token t;}{
     NonArrayType() ("[" "]")*
 }
-void ReturnType() : {Token t;}{
+void ReturnType() throws YAPLException : {Token t;}{
     <VOID> | Type()
 }
 
 //DECLARATIONS
-void ConstDecl() : {Token t;}{
+void ConstDecl() throws YAPLException : {Token t;}{
     <CONST> t = <IDENT>
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Constant);
@@ -288,20 +290,20 @@ void ConstDecl() : {Token t;}{
     }
     "=" Literal() ";"
 }
-void VarDecl() : {Token t; Token t2;}{
+void VarDecl() throws YAPLException : {Token t; Token t2; Symbol s;}{
     Type() t = <IDENT>
     {
-        Symbol s = new YAPLSymbol(t.image, Symbol.Variable);
+        s = new YAPLSymbol(t.image, Symbol.Variable);
         symboltable.addSymbol(s);
     }
     ("," t2 = <IDENT>
     {
-        Symbol s = new YAPLSymbol(t2.image, Symbol.Variable);
+        s = new YAPLSymbol(t2.image, Symbol.Variable);
         symboltable.addSymbol(s);
     }
     )* ";"
 }
-void TypeDecl() : {Token t;}{
+void TypeDecl() throws YAPLException : {Token t;}{
     <RECORD> t = <IDENT>
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Typename);
@@ -309,28 +311,29 @@ void TypeDecl() : {Token t;}{
     }
     VarDecl() (VarDecl() )* <ENDRECORD> ";"
 }
-void Decl() : {Token t;}{
+void Decl() throws YAPLException : {Token t;}{
     <DECLARE> (ConstDecl() |VarDecl() | TypeDecl() )*
 }
 
 //PARAMETERS
-void FormalParam() : {Token t; }{
+void FormalParam() throws YAPLException : {Token t; }{
     Type() t = <IDENT>
 }
-void FormalParamList() : {Token t;}{
+void FormalParamList() throws YAPLException : {Token t;}{
     FormalParam() ("," FormalParam() )*
 }
 
-void Procedure() : {Token t; Token x;}{
+void Procedure() throws YAPLException : {Token t; Token x;}{
     <PROCEDURE> ReturnType() t = <IDENT> "(" [FormalParamList()]  ")" Block() x = <IDENT>
     {
+        Symbol s = new YAPLSymbol(t.image, Symbol.Procedure);
         if(!t.image.equals(x.image)){
-            //TODO: throw custom error
+            throw new EndIdentifierMismatchException(s, x.image);
         }
     }
     ";"
 }
-void Program() : {Token t; Token x;}{
+void Program() throws YAPLException : {Token t; Token x;}{
     <PROGRAM> t = <IDENT>
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Program);
@@ -340,15 +343,15 @@ void Program() : {Token t; Token x;}{
     }
     (Decl() | Procedure() )* <BEGIN> StatementList() <END>  x = <IDENT>
      {
-        if(!t.image.equals(x.image)){
-            //TODO: throw custom error
-        }
-     }
+   if(!t.image.equals(x.image)){
+       throw new EndIdentifierMismatchException(s, x.image);
+   }
+}
      "."
 }
 
 /** Root production. */
-void Start() : { Token t; } {
+void Start() throws YAPLException : { Token t; } {
     (Program())*
       <EOF>
 }
