@@ -61,6 +61,7 @@ public class Scope {
     }
 
     public Symbol getNearestParentSymbol(int kind){
+        if (pSymbol == null && parent != null) return parent.getNearestParentSymbol(kind);
         if (pSymbol != null && pSymbol.getKind() == kind) return pSymbol;
         if (parent == null) return null;
         return parent.getNearestParentSymbol(kind);

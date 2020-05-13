@@ -26,7 +26,24 @@ public class YAPLSymbol implements Symbol {
 
     @Override
     public String getKindString() {
-        return name;
+        switch(getKind()){
+            case 0:
+                return "program";
+            case 1:
+                return "procedure";
+            case 2:
+                return "variable";
+            case 3:
+                return "constant";
+            case 4:
+                return "typename";
+            case 5:
+                return "field";
+            case 6:
+                return "parameter";
+            default:
+                return "error";
+        }
     }
 
     @Override
