@@ -260,7 +260,14 @@ void StatementList() throws YAPLException : {Token t;}{
     (Statement() ";")*
 }
 void Block() throws YAPLException : {Token t;}{
+    {
+        symboltable.openScope(false);
+    }
     [Decl()] <BEGIN> StatementList() <END>
+    {
+        //TODO: iwas wegen return
+        symboltable.closeScope();
+    }
 }
 
 //TYPES
@@ -269,7 +276,8 @@ void NonArrayType() throws YAPLException : {Token t;}{
     {
     Symbol s = symboltable.lookup(t.image);
     if(s.getKind() != Symbol.Typename){
-        throw new NonArrayTypeException(s.getKind(), Symbol.Typename);
+        //throw new NonArrayTypeException(s.getKind(), Symbol.Typename);
+        throw new SymbolIllegalUseException(s);
     }
     }
 }
@@ -318,18 +326,30 @@ void Decl() throws YAPLException : {Token t;}{
 //PARAMETERS
 void FormalParam() throws YAPLException : {Token t; }{
     Type() t = <IDENT>
+    {
+        Symbol s = new YAPLSymbol(t.image, Symbol.Parameter);
+        symboltable.addSymbol(s);
+    }
 }
 void FormalParamList() throws YAPLException : {Token t;}{
     FormalParam() ("," FormalParam() )*
 }
 
 void Procedure() throws YAPLException : {Token t; Token x;}{
-    <PROCEDURE> ReturnType() t = <IDENT> "(" [FormalParamList()]  ")" Block() x = <IDENT>
+    <PROCEDURE> ReturnType() t = <IDENT>
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Procedure);
-        if(!t.image.equals(x.image)){
-            throw new EndIdentifierMismatchException(s, x.image);
+        symboltable.addSymbol(s);
+        symboltable.openScope(false);
+        symboltable.setParentSymbol(s);
+    }
+     "(" [FormalParamList()]  ")" Block() t = <IDENT>
+    {
+        Symbol parent = symboltable.getNearestParentSymbol(Symbol.Procedure);
+        if(!parent.getName().equals(t.image)){
+            throw new EndIdentifierMismatchException(parent, t.image);
         }
+        symboltable.closeScope();
     }
     ";"
 }
@@ -343,9 +363,10 @@ void Program() throws YAPLException : {Token t; Token x;}{
     }
     (Decl() | Procedure() )* <BEGIN> StatementList() <END>  x = <IDENT>
      {
-   if(!t.image.equals(x.image)){
-       throw new EndIdentifierMismatchException(s, x.image);
-   }
+        if(!t.image.equals(x.image)){
+            throw new EndIdentifierMismatchException(s, x.image);
+        symboltable.closeScope();
+     }
 }
      "."
 }

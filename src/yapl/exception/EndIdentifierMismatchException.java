@@ -6,9 +6,9 @@ import yapl.lib.YAPLException;
 import yapl.compiler.Yapl;
 
 public class EndIdentifierMismatchException extends YAPLException {
-    public EndIdentifierMismatchException(Symbol startSymbol, String endSymbol){
+    public EndIdentifierMismatchException(Symbol startSymbol, String endSymbol) {
         setLineAndColumn(Yapl.token);
-        message = String.format("End %s does not match %s %s", startSymbol.getName(), startSymbol.getKindString(), endSymbol);
+        message = String.format("End %s does not match %s %s", endSymbol, startSymbol.getKindString(), startSymbol.getName());
         errorNumber = CompilerError.EndIdentMismatch;
     }
 }
