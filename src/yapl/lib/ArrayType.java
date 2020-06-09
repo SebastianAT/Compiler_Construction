@@ -5,16 +5,17 @@ public class ArrayType extends Type {
     private int dim;
     private Type subarray;
 
-    public ArrayType(Type element, int dim) {
-        this.element = element;
-        this.dim = dim;
-        if(dim>1){
-            this.subarray = new ArrayType(element, dim-1);
+    public ArrayType(Type type) {
+        if(type instanceof ArrayType){
+            this.element = ((ArrayType) type).getElement();
+            this.dim = ((ArrayType) type).getDim()+1;
+            this.subarray = type;
         }
         else{
+            this.element = type;
+            this.dim = 1;
             this.subarray = element;
         }
-
     }
 
     public Type getElement() {

@@ -13,6 +13,9 @@ public class YAPLAttrib implements Attrib {
     private boolean isReadonly;
     private int offset;
 
+    public YAPLAttrib(Type type) {
+        this.type = type;
+    }
 
     @Override
     public byte getKind() {

@@ -1,12 +1,14 @@
 package yapl.impl;
 
 import yapl.compiler.Token;
+import yapl.exception.IllegalEqualOpTypeException;
+import yapl.exception.IllegalOp1TypeException;
+import yapl.exception.IllegalOp2TypeException;
+import yapl.exception.IllegalRelOpTypeException;
 import yapl.interfaces.Attrib;
 import yapl.interfaces.CodeGen;
 import yapl.interfaces.Symbol;
-import yapl.lib.ArrayType;
-import yapl.lib.RecordType;
-import yapl.lib.YAPLException;
+import yapl.lib.*;
 
 public class CodeGenImpl implements CodeGen {
 
@@ -87,22 +89,36 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib op1(Token op, Attrib x) throws YAPLException {
-        return null;
+        if(op != null){
+            if(!(x.getType() instanceof IntType)){
+                throw new IllegalOp1TypeException(op);
+            }
+        }
+        return x;
     }
 
     @Override
     public Attrib op2(Attrib x, Token op, Attrib y) throws YAPLException {
-        return null;
+        if(!(x.getType().isCompatible(y.getType()))){
+            throw new IllegalOp2TypeException(op);
+        }
+        return x;
     }
 
     @Override
     public Attrib relOp(Attrib x, Token op, Attrib y) throws YAPLException {
-        return null;
+        if(!(x.getType() instanceof IntType && y.getType() instanceof IntType)){
+            throw new IllegalRelOpTypeException(op);
+        }
+        return new YAPLAttrib(new BoolType());
     }
 
     @Override
     public Attrib equalOp(Attrib x, Token op, Attrib y) throws YAPLException {
-        return null;
+        if(!(x.getType().isCompatible(y.getType()))){
+            throw new IllegalEqualOpTypeException(op);
+        }
+        return new YAPLAttrib(new BoolType());
     }
 
     @Override
