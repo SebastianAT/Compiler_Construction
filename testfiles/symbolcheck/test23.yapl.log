@@ -1,0 +1,3 @@
+     [java] Reading the file D:\Desktop\Master\Compilerbau\Code\testfiles\symbolcheck\test23.yapl ...
+     [java] YAPL compilation: [Yapl] ERROR 12 (line 22, column 15)
+     [java] illegal use of procedure 'createMatrix'

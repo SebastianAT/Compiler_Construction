@@ -1,0 +1,3 @@
+     [java] Reading the file D:\Desktop\Master\Compilerbau\Code\testfiles\symbolcheck\test29.yapl ...
+     [java] YAPL compilation: [Yapl] ERROR 10 (line 12, column 9)
+     [java] symbol 'id' already declared in current scope (as variable)

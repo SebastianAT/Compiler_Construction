@@ -1,0 +1,3 @@
+     [java] Reading the file D:\Desktop\Master\Compilerbau\Code\testfiles\symbolcheck\test09.yapl ...
+     [java] YAPL compilation: [Yapl] ERROR 10 (line 8, column 12)
+     [java] symbol 'k' already declared in current scope (as variable)

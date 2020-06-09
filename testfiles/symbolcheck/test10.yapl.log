@@ -1,0 +1,3 @@
+     [java] Reading the file D:\Desktop\Master\Compilerbau\Code\testfiles\symbolcheck\test10.yapl ...
+     [java] YAPL compilation: [Yapl] ERROR 10 (line 9, column 40)
+     [java] symbol 'm' already declared in current scope (as parameter)

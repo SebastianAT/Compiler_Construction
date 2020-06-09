@@ -10,29 +10,13 @@ public class YAPLAttrib implements Attrib {
     private Type type;
     private boolean isConstant;
     private boolean isGlobal;
+    private boolean isReadonly;
     private int offset;
 
 
     @Override
     public byte getKind() {
-        switch(kind){
-            case 0:
-                return Byte.valueOf("Invalid");
-            case 1:
-                return Byte.valueOf("RegValue");
-            case 2:
-                return Byte.valueOf("RegAddress");
-            case 3:
-                return Byte.valueOf("Constant");
-            case 4:
-                return Byte.valueOf("MemoryOperand");
-            case 5:
-                return Byte.valueOf("ArrayElement");
-            case 6:
-                return Byte.valueOf("RecordField");
-            default:
-                return Byte.valueOf("error");
-        }
+        return kind;
     }
 
     @Override
@@ -62,13 +46,12 @@ public class YAPLAttrib implements Attrib {
 
     @Override
     public boolean isReadonly() {
-        // TODO
-        return false;
+        return isReadonly;
     }
 
     @Override
     public void setReadonly(boolean isReadonly) {
-        // TODO
+        this.isReadonly = isReadonly;
     }
 
     @Override

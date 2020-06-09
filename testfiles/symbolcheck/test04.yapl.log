@@ -1,0 +1,3 @@
+     [java] Reading the file D:\Desktop\Master\Compilerbau\Code\testfiles\symbolcheck\test04.yapl ...
+     [java] YAPL compilation: [Yapl] ERROR 11 (line 10, column 10)
+     [java] identifier 'len' not declared
