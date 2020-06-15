@@ -1,10 +1,8 @@
 package yapl.impl;
 
 import yapl.compiler.Token;
-import yapl.exception.IllegalEqualOpTypeException;
-import yapl.exception.IllegalOp1TypeException;
-import yapl.exception.IllegalOp2TypeException;
-import yapl.exception.IllegalRelOpTypeException;
+import yapl.compiler.Yapl;
+import yapl.exception.*;
 import yapl.interfaces.Attrib;
 import yapl.interfaces.CodeGen;
 import yapl.interfaces.Symbol;
@@ -54,7 +52,9 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib allocArray(ArrayType arrayType) throws YAPLException {
-        return null;
+        YAPLAttrib attrib = new YAPLAttrib(arrayType);
+        attrib.setKind(Attrib.RegAddress);
+        return attrib;
     }
 
     @Override
@@ -79,12 +79,15 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib arrayLength(Attrib arr) throws YAPLException {
-        return null;
+        return new YAPLAttrib(new IntType());
     }
 
     @Override
     public void assign(Attrib lvalue, Attrib expr) throws YAPLException {
-
+        if (!lvalue.getType().isCompatible(expr.getType()))
+        {
+            throw new TypeMismatchAssignException();
+        }
     }
 
     @Override
@@ -99,6 +102,10 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib op2(Attrib x, Token op, Attrib y) throws YAPLException {
+        if(op.kind == Yapl.OR || op.kind == Yapl.AND ){
+            if (!(x.getType() instanceof BoolType && y.getType() instanceof BoolType))
+                throw new IllegalOp2TypeException(op);
+        }
         if(!(x.getType().isCompatible(y.getType()))){
             throw new IllegalOp2TypeException(op);
         }

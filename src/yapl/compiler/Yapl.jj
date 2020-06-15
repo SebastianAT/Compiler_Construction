@@ -198,29 +198,47 @@ Attrib Literal() throws YAPLException : {Token t; Attrib a;}{
         return a;
     }
 }
-void Selector() throws YAPLException : {Token t;}{
-    ( "[" Expr() "]" | "." t = <IDENT>
+Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token error2; Attrib index;Attrib retval;}{
+    ( error1 = "[" index = Expr() error2 = "]" [a = Selector(a)])
     {
-        //TODO: Implement later, not needed in CA3
+    if (!(index.getType() instanceof IntType))
+    			throw new BadArraySelectorException(error2);
+    if (a.getType() instanceof ArrayType)
+    {
+        Attrib retVal = new YAPLAttrib(((ArrayType)a.getType()).getElement());
+        retVal.setOffset(a.getOffset());
+        retVal.setKind(Attrib.ArrayElement);
+        retVal.setGlobal(a.isGlobal());
+        return retVal;
     }
-    )[Selector()]
+    throw new SelectorNotArrayException(error1);
+    }
+    | "." t = <IDENT> [a = Selector(a)]
 }
-void ArrayLen() throws YAPLException : {Token t;}{
-    "#" t = <IDENT>
+Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
+    error = "#" t = <IDENT>
     {
     Symbol s = symboltable.lookup(t.image);
     if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
         throw new SymbolIllegalUseException(s);
     }
-}
-    [Selector() ]
+    retval = new YAPLAttrib(s.getType());
+    }
+    [retval = Selector(retval) ]
+    {
+        if (!(retval.getType() instanceof ArrayType))
+        {
+            throw new ArrayLenNotArrayException(error);
+        }
+        return codegen.arrayLength(retval);
+    }
 }
 Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null;}{
     (retval = Literal()
     {
         return retval;
     }
-    | "(" Expr() ")" | LOOKAHEAD(2) ProcedureCall() | t = <IDENT>
+    | "(" retval = Expr() ")" | LOOKAHEAD(2) ProcedureCall() | t = <IDENT>
     {
         Symbol s = symboltable.lookup(t.image);
         if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Constant && s.getKind() != Symbol.Parameter){
@@ -228,7 +246,7 @@ Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null;}{
         }
         retval = new YAPLAttrib(s.getType());
     }
-    [Selector()] | ArrayLen() )
+    [retval = Selector(retval)] | retval = ArrayLen() )
     {
        return retval;
     }
@@ -277,14 +295,35 @@ Attrib EqualExpr() throws YAPLException : {Token t; Attrib retval; Attrib op;}{
         return retval;
     }
 }
-void CondAndExpr() throws YAPLException : {Token t;}{
-    EqualExpr() (<AND> EqualExpr() )*
+Attrib CondAndExpr() throws YAPLException : {Attrib retval; Token op; Attrib exp;}{
+    retval = EqualExpr() (op = <AND> exp = EqualExpr()
+    {
+        retval = codegen.op2(retval,op,exp);
+    })*
+    {
+        return retval;
+    }
 }
-void CreationExpr() throws YAPLException : {Token t;}{
-    <NEW> NonArrayType() ("[" Expr() "]")*
+Attrib CreationExpr() throws YAPLException : {Attrib retval; Attrib index; Type type; Token error;}{
+    <NEW> type = NonArrayType() ("[" index = Expr() error = "]"
+    {
+        type = new ArrayType(type);
+        if (!(index.getType() instanceof IntType))
+        			throw new BadArraySelectorException(error);
+    })*
+    {
+        return codegen.allocArray((ArrayType)type);
+    }
 }
-void Expr() throws YAPLException : {Token t;}{
-    CondAndExpr() (<OR> CondAndExpr() )* | CreationExpr()
+Attrib Expr() throws YAPLException : {Attrib retval; Token op; Attrib op2;}{
+    (retval = CondAndExpr() (op = <OR> op2 = CondAndExpr()
+    {
+        retval = codegen.op2(retval, op, op2);
+    }
+    )* | retval = CreationExpr())
+    {
+        return retval;
+    }
 }
 
 //Statements
@@ -302,15 +341,19 @@ void ProcedureCall() throws YAPLException : {Token t;}{
      "(" [ArgumentList() ] ")"
 }
 
-void Assignment() throws YAPLException : {Token t;}{
+void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;}{
     t = <IDENT>
     {
     Symbol s = symboltable.lookup(t.image);
+    target = new YAPLAttrib(s.getType());
     if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
         throw new SymbolIllegalUseException(s);
     }
 }
-    [Selector() ] <ASSIGN> Expr()
+    [target = Selector(target) ] <ASSIGN> source = Expr()
+    {
+        codegen.assign(target, source);
+    }
 }
 
 
