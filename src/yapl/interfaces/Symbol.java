@@ -2,6 +2,8 @@ package yapl.interfaces;
 
 import yapl.lib.Type;
 
+import java.util.List;
+
 /** Interface to YAPL symbols contained in the symbol table.
  * A symbol's data type is represented by an abstract class <code>Type</code>,
  * which needs to be defined before using this interface.
@@ -105,4 +107,8 @@ public interface Symbol
 	
 	/** Return a text representation of this symbol for debugging purposes. */
 	public String toString();
+
+	/** added for transferring param list*/
+	public void setParam(List<Symbol> param);
+	public List<Symbol> getParam();
 }

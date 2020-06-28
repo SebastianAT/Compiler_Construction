@@ -5,7 +5,7 @@ public class Type {
 
     public boolean isCompatible(Type t){
         if(this instanceof ArrayType && t instanceof  ArrayType){
-            return ((ArrayType)this).getElement().isCompatible(((ArrayType)t).getElement());
+            return ((ArrayType)this).getSubarray().isCompatible(((ArrayType)t).getSubarray());
         }
         return this.getClass().equals(t.getClass());
     }

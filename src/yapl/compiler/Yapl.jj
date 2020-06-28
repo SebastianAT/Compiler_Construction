@@ -32,10 +32,14 @@ package yapl.compiler;
 import yapl.ant.*;
 import yapl.compiler.*;
 import yapl.exception.*;
-import yapl.impl.CodeGenImpl;import yapl.impl.YAPLAttrib;import yapl.impl.YAPLSymbol;
+import yapl.impl.CodeGenImpl;
+import yapl.impl.YAPLAttrib;
+import yapl.impl.YAPLSymbol;
 import yapl.impl.YAPLSymbolTable;
 import yapl.interfaces.*;
-import yapl.lib.*;import java.io.StringReader;
+import yapl.lib.*;
+import java.io.StringReader;
+import java.util.ArrayList;import java.util.List;
 
 /** Simple brace matcher. */
 public class  Yapl{
@@ -43,10 +47,10 @@ public class  Yapl{
     private static Symboltable symboltable = new YAPLSymbolTable();
     private static CodeGen codegen = new CodeGenImpl();
     public static final String PREDEFINED_PROCEDURES =
-                         			"Procedure writeint(int i);" +
-                         			"Procedure writebool(bool b);" +
-                         			"Procedure writeln();" +
-                         			"Procedure readint(): int;";
+                         			"Procedure void writeint(int i);" +
+                         			"Procedure void writebool(bool b);" +
+                         			"Procedure void writeln();" +
+                         			"Procedure int readint();";
   /** Main entry point. */
   public static void main(String args[]) throws ParseException {
       Yapl parser = null;
@@ -205,7 +209,7 @@ Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token e
     			throw new BadArraySelectorException(error2);
     if (a.getType() instanceof ArrayType)
     {
-        Attrib retVal = new YAPLAttrib(((ArrayType)a.getType()).getElement());
+        Attrib retVal = new YAPLAttrib(((ArrayType)a.getType()).getSubarray());
         retVal.setOffset(a.getOffset());
         retVal.setKind(Attrib.ArrayElement);
         retVal.setGlobal(a.isGlobal());
@@ -213,7 +217,14 @@ Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token e
     }
     throw new SelectorNotArrayException(error1);
     }
-    | "." t = <IDENT> [a = Selector(a)]
+    | error1 = "." t = <IDENT> [a = Selector(a)]
+    {
+        if(a.getType() instanceof RecordType){
+                return new YAPLAttrib(((RecordType)a.getType()).returnType(t.image));
+        }
+        throw new SelectorNotRecordException(error1);
+        System.out.println(a.getType() + " ");
+    }
 }
 Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
     error = "#" t = <IDENT>
@@ -238,7 +249,7 @@ Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null;}{
     {
         return retval;
     }
-    | "(" retval = Expr() ")" | LOOKAHEAD(2) ProcedureCall() | t = <IDENT>
+    | "(" retval = Expr() ")" | LOOKAHEAD(2) retval = ProcedureCall(true) | t = <IDENT>
     {
         Symbol s = symboltable.lookup(t.image);
         if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Constant && s.getKind() != Symbol.Parameter){
@@ -327,18 +338,43 @@ Attrib Expr() throws YAPLException : {Attrib retval; Token op; Attrib op2;}{
 }
 
 //Statements
-void ArgumentList() throws YAPLException : {Token t;}{
-    Expr() ("," Expr() )*
-}
-void ProcedureCall() throws YAPLException : {Token t;}{
-    t = <IDENT>
+List<Attrib> ArgumentList(Symbol s) throws YAPLException : {Token t; Attrib arg; List<Attrib> retval = new ArrayList<Attrib>(); List<Symbol> param = s.getParam(); int args = 1;}{
+    arg = Expr()
     {
-    Symbol s = symboltable.lookup(t.image);
-    if(s.getKind() != Symbol.Procedure){
-        throw new SymbolIllegalUseException(s);
+        retval.add(arg);
+        if ((param.size() < args) || (!param.get(args-1).getType().isCompatible(arg.getType())))
+            	throw new ArgNotApplicableException(args, s, token);
+    }
+    ("," arg = Expr()
+    {
+        retval.add(arg);
+        args++;
+        if ((param.size() < args) || (!param.get(args-1).getType().isCompatible(arg.getType())))
+                    	throw new ArgNotApplicableException(args, s, token);
+    }
+    )*
+    {
+        return retval;
     }
 }
-     "(" [ArgumentList() ] ")"
+Attrib ProcedureCall(boolean isFunc) throws YAPLException : {Token t; Token err; List<Attrib> arguments = new ArrayList<Attrib>();}{
+    t = <IDENT>
+    {
+        Symbol s = symboltable.lookup(t.image);
+        if(s.getKind() != Symbol.Procedure){
+            throw new SymbolIllegalUseException(s);
+        }
+        if(isFunc && s.getType() == null)
+            throw new ProcNotFuncExprException(s);
+    }
+    "(" [arguments = ArgumentList(s) ] err = ")"
+    {
+        if(s.getParam().size() != arguments.size())
+            throw new TooFewArgsException(err, s);
+        Attrib[] arr = new Attrib[arguments.size()];
+        arr = arguments.toArray(arr);
+        return codegen.callProc(s,arr);
+    }
 }
 
 void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;}{
@@ -357,31 +393,58 @@ void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;
 }
 
 
-void IfStatement() throws YAPLException : {Token t;}{
-    <IF> Expr() <THEN> StatementList() [<ELSE> StatementList()] <ENDIF>
+void IfStatement() throws YAPLException : {Token t; Attrib clause;}{
+    <IF> clause = Expr()
+    {
+        if (!(clause.getType() instanceof BoolType))
+              	throw new CondNotBoolException(token);
+    }
+    <THEN> StatementList() [<ELSE> StatementList()] <ENDIF>
 }
-void WhileStatement() throws YAPLException : {Token t;}{
-    <WHILE> Expr() <DO> StatementList() <ENDWHILE>
+void WhileStatement() throws YAPLException : {Token t; Attrib clause;}{
+    <WHILE> clause = Expr()
+    {
+        if (!(clause.getType() instanceof BoolType))
+            throw new CondNotBoolException(token);
+    }
+    <DO> StatementList() <ENDWHILE>
 }
-void ReturnStatement() throws YAPLException : {Token t;}{
-    <RETURN> [Expr() ]
+void ReturnStatement() throws YAPLException : {Attrib arg = null; Symbol s = symboltable.getNearestParentSymbol(Symbol.Procedure); boolean ret = false;}{
+    <RETURN> [arg = Expr()
+    {
+        ret = true;
+        if(s == null)
+            throw new IllegalRetValMainException(token);
+        if(s.getType() == null)
+            throw new IllegalRetValProcException(token, s);
+        if (!s.getType().isCompatible(arg.getType()))
+            	throw new InvalidReturnTypeException(s, token);
+    } ]
+    {
+        if (s == null) return;
+        if (s.getType() != null && !ret)
+            	throw new InvalidReturnTypeException(s, token);
+        s.setReturnSeen(true);
+    }
 }
 void WriteStatement() throws YAPLException : {Token t;}{
     <WRITE> <STRING>
 }
 void Statement() throws YAPLException : {Token t;}{
-    IfStatement() | WhileStatement() | ReturnStatement() | WriteStatement() | LOOKAHEAD(2) Assignment() | ProcedureCall() | Block()
+    IfStatement() | WhileStatement() | ReturnStatement() | WriteStatement() | LOOKAHEAD(2) Assignment() | ProcedureCall(false) | Block()
 }
 void StatementList() throws YAPLException : {Token t;}{
     (Statement() ";")*
 }
-void Block() throws YAPLException : {Token t;}{
+void Block() throws YAPLException : {Token err;}{
     {
         symboltable.openScope(false);
     }
-    [Decl()] <BEGIN> StatementList() <END>
+    [Decl()] <BEGIN> StatementList() err = <END>
     {
-        //TODO: iwas wegen return
+         Symbol parent = symboltable.getNearestParentSymbol(Symbol.Procedure);
+         if (parent != null && parent.getType() != null && !parent.getReturnSeen())
+            throw new MissingReturnException(err, parent);
         symboltable.closeScope();
     }
 }
@@ -421,8 +484,11 @@ Type Type() throws YAPLException :{Token t; Type type;}{
         return type;
     }
 }
-void ReturnType() throws YAPLException : {Token t;}{
-    <VOID> | Type()
+Type ReturnType() throws YAPLException : {Token t; Type type = null;}{
+    (<VOID> | type = Type())
+    {
+        return type;
+    }
 }
 
 //DECLARATIONS
@@ -439,18 +505,24 @@ void ConstDecl() throws YAPLException : {Token t; Attrib a;}{
     }
     ";"
 }
-void VarDecl() throws YAPLException : {Type type; Token t; Token t2; Symbol s;}{
+void VarDecl() throws YAPLException : {Type type; Token t; Token t2; Symbol s; Symbol parent = symboltable.getNearestParentSymbol(Symbol.Typename);}{
     type = Type() t = <IDENT>
     {
         s = new YAPLSymbol(t.image, Symbol.Variable);
         s.setType(type);
         symboltable.addSymbol(s);
+        if(parent != null){
+            ((RecordType)parent.getType()).addField(type,t.image);
+        }
     }
     ("," t2 = <IDENT>
     {
         s = new YAPLSymbol(t2.image, Symbol.Variable);
         s.setType(type);
         symboltable.addSymbol(s);
+        if(parent != null){
+            ((RecordType)parent.getType()).addField(type,t2.image);
+        }
     }
     )* ";"
 }
@@ -459,34 +531,56 @@ void TypeDecl() throws YAPLException : {Token t;}{
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Typename);
         symboltable.addSymbol(s);
+        symboltable.openScope(false);
+        symboltable.setParentSymbol(s);
+        s.setType(new RecordType(t.image));
     }
     VarDecl() (VarDecl() )* <ENDRECORD> ";"
+    {
+        symboltable.closeScope();
+    }
 }
 void Decl() throws YAPLException : {Token t;}{
     <DECLARE> (ConstDecl() |VarDecl() | TypeDecl() )*
 }
 
 //PARAMETERS
-void FormalParam() throws YAPLException : {Token t; }{
-    Type() t = <IDENT>
+Symbol FormalParam() throws YAPLException : {Token t; Type type;}{
+    type = Type() t = <IDENT>
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Parameter);
+        s.setType(type);
         symboltable.addSymbol(s);
+        return s;
     }
 }
-void FormalParamList() throws YAPLException : {Token t;}{
-    FormalParam() ("," FormalParam() )*
+List<Symbol> FormalParamList() throws YAPLException : {Token t; List<Symbol> param = new ArrayList<Symbol>(); Symbol s;}{
+    s = FormalParam()
+    {
+        param.add(s);
+    } ("," s = FormalParam()
+    {
+        param.add(s);
+    } )*
+    {
+        return param;
+    }
 }
 
-void Procedure() throws YAPLException : {Token t; Token x;}{
-    <PROCEDURE> ReturnType() t = <IDENT>
+void Procedure() throws YAPLException : {Token t; Token x; Type type; List<Symbol> param = null;}{
+    <PROCEDURE> type = ReturnType() t = <IDENT>
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Procedure);
         symboltable.addSymbol(s);
         symboltable.openScope(false);
         symboltable.setParentSymbol(s);
+        s.setType(type);
     }
-     "(" [FormalParamList()]  ")" Block() t = <IDENT>
+    "(" [param = FormalParamList()]  ")"
+    {
+        if(param != null){s.setParam(param);}
+    }
+    Block() t = <IDENT>
     {
         Symbol parent = symboltable.getNearestParentSymbol(Symbol.Procedure);
         if(!parent.getName().equals(t.image)){
@@ -522,16 +616,20 @@ void PredefinedProcedures() throws YAPLException :
 void PredefProc() throws YAPLException :
     {
         Token t;
+        Type type;
+        List<Symbol> param = null;
     }
     {
-    < PROCEDURE > t = < IDENT >
+    < PROCEDURE > type = ReturnType() t = < IDENT >
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Procedure);
         symboltable.addSymbol(s);
         symboltable.openScope(true);
         symboltable.setParentSymbol(s);
-    } "(" (FormalParamList())? ")"(":" Type())? ";"
+        s.setType(type);
+    } "(" (param = FormalParamList())? ")" ";"
     {
+        if(param != null){s.setParam(param);}
         symboltable.closeScope();
     }
 }

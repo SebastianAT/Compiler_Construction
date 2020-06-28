@@ -4,6 +4,8 @@ import yapl.interfaces.Symbol;
 import yapl.lib.Type;
 
 import javax.lang.model.type.ArrayType;
+import java.util.ArrayList;
+import java.util.List;
 
 public class YAPLSymbol implements Symbol {
 
@@ -13,8 +15,9 @@ public class YAPLSymbol implements Symbol {
     private Type type;
     private boolean isReference, isGlobal, isReadonly, seen;
     private int offset;
+    private List<Symbol> param = new ArrayList<Symbol>();
 
-    public YAPLSymbol(String name, int kind){
+    public YAPLSymbol(String name, int kind) {
         this.name = name;
         setKind(kind);
     }
@@ -26,7 +29,7 @@ public class YAPLSymbol implements Symbol {
 
     @Override
     public String getKindString() {
-        switch(getKind()){
+        switch (getKind()) {
             case 0:
                 return "program";
             case 1:
@@ -65,7 +68,7 @@ public class YAPLSymbol implements Symbol {
     public void setType(Type type) {
         this.type = type;
 
-        if(type instanceof ArrayType){
+        if (type instanceof ArrayType) {
             isReference = true;
         }
     }
@@ -130,5 +133,13 @@ public class YAPLSymbol implements Symbol {
         this.seen = seen;
     }
 
+    @Override
+    public List<Symbol> getParam() {
+        return param;
+    }
 
+    @Override
+    public void setParam(List<Symbol> param) {
+        this.param = param;
+    }
 }

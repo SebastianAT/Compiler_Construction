@@ -145,7 +145,7 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib callProc(Symbol proc, Attrib[] args) throws YAPLException {
-        return null;
+        return new YAPLAttrib(proc.getType());
     }
 
     @Override
