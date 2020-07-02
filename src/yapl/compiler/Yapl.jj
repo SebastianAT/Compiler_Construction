@@ -202,11 +202,15 @@ Attrib Literal() throws YAPLException : {Token t; Attrib a;}{
         return a;
     }
 }
-Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token error2; Attrib index;Attrib retval;}{
-    ( error1 = "[" index = Expr() error2 = "]" [a = Selector(a)])
+Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token error2; Attrib index; Attrib retval; Attrib first = a;}{
+    (error1 = "[" index = Expr() error2 = "]" [a = Selector(a)])
     {
     if (!(index.getType() instanceof IntType))
     			throw new BadArraySelectorException(error2);
+    System.out.println(first.getType() + " lol ");
+    if(first.getType() instanceof RecordType){
+        System.out.println("HI");
+    }
     if (a.getType() instanceof ArrayType)
     {
         Attrib retVal = new YAPLAttrib(((ArrayType)a.getType()).getSubarray());
@@ -223,7 +227,6 @@ Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token e
                 return new YAPLAttrib(((RecordType)a.getType()).returnType(t.image));
         }
         throw new SelectorNotRecordException(error1);
-        System.out.println(a.getType() + " ");
     }
 }
 Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
@@ -316,14 +319,20 @@ Attrib CondAndExpr() throws YAPLException : {Attrib retval; Token op; Attrib exp
     }
 }
 Attrib CreationExpr() throws YAPLException : {Attrib retval; Attrib index; Type type; Token error;}{
-    <NEW> type = NonArrayType() ("[" index = Expr() error = "]"
+    error = <NEW> type = NonArrayType() ("[" index = Expr() error = "]"
     {
         type = new ArrayType(type);
         if (!(index.getType() instanceof IntType))
         			throw new BadArraySelectorException(error);
     })*
     {
-        return codegen.allocArray((ArrayType)type);
+        if(type instanceof RecordType){
+            return new YAPLAttrib(type);
+        }
+        if(type instanceof ArrayType){
+            return codegen.allocArray((ArrayType)type);
+        }
+        throw new InvalidCreationTypeException(error);
     }
 }
 Attrib Expr() throws YAPLException : {Attrib retval; Token op; Attrib op2;}{
@@ -377,7 +386,7 @@ Attrib ProcedureCall(boolean isFunc) throws YAPLException : {Token t; Token err;
     }
 }
 
-void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;}{
+void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;Token error;}{
     t = <IDENT>
     {
     Symbol s = symboltable.lookup(t.image);
@@ -386,8 +395,9 @@ void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;
         throw new SymbolIllegalUseException(s);
     }
 }
-    [target = Selector(target) ] <ASSIGN> source = Expr()
+    [target = Selector(target) ] error = <ASSIGN> source = Expr()
     {
+        TypeMismatchAssignException.errorToken = error;
         codegen.assign(target, source);
     }
 }
@@ -450,7 +460,7 @@ void Block() throws YAPLException : {Token err;}{
 }
 
 //TYPES
-Type NonArrayType() throws YAPLException : {Token t; Type type;}{
+Type NonArrayType() throws YAPLException : {Token t; Type type; Symbol parent = symboltable.getNearestParentSymbol(Symbol.Typename);}{
     (<INTEGER>
     {
         type = new IntType();
@@ -467,6 +477,12 @@ Type NonArrayType() throws YAPLException : {Token t; Type type;}{
             throw new SymbolIllegalUseException(s);
         }
         type = s.getType();
+        if(parent != null){
+            if(t.image.equals(parent.getName())){
+                s.setType(parent.getType());
+                //System.out.println(t.image + " "+ ((RecordType)s.getType()).getFields().size());
+            }
+        }
     }
     )
     {

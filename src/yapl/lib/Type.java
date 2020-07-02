@@ -7,6 +7,9 @@ public class Type {
         if(this instanceof ArrayType && t instanceof  ArrayType){
             return ((ArrayType)this).getSubarray().isCompatible(((ArrayType)t).getSubarray());
         }
+        if(this instanceof RecordType && t instanceof RecordType){
+            return ((RecordType)this).equalsRecord((RecordType)t);
+        }
         return this.getClass().equals(t.getClass());
     }
 

@@ -7,7 +7,7 @@ import yapl.lib.YAPLException;
 public class InvalidRecordFieldException extends YAPLException {
     public InvalidRecordFieldException(String field, String record) {
         message = String.format("invalid field %s of record %s", field, record);
-        errorNumber = CompilerError.InvalidReturnType;
+        errorNumber = CompilerError.InvalidRecordField;
         setLineAndColumn(Yapl.token);
     }
 }
