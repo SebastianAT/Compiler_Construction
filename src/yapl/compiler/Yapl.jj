@@ -207,10 +207,6 @@ Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token e
     {
     if (!(index.getType() instanceof IntType))
     			throw new BadArraySelectorException(error2);
-    System.out.println(first.getType() + " lol ");
-    if(first.getType() instanceof RecordType){
-        System.out.println("HI");
-    }
     if (a.getType() instanceof ArrayType)
     {
         Attrib retVal = new YAPLAttrib(((ArrayType)a.getType()).getSubarray());
