@@ -21,7 +21,6 @@ public class BackendMJ implements BackendBinSM {
     private ArrayList<Integer> flsp; //free local space pointer - is needed for allocating local variables
     private ArrayList<Integer> dimaddr; //stores the adresses to the dimension lengths
 
-
     public BackendMJ() {
         labels = new HashMap<String, Integer>();
         backpatching = new HashMap<String, List<Integer>>();
@@ -29,6 +28,7 @@ public class BackendMJ implements BackendBinSM {
         sb = new ArrayList<Byte>();
         flsp = new ArrayList<Integer>();
         dimaddr = new ArrayList<Integer>();
+
     }
 
     @Override

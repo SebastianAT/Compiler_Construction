@@ -36,24 +36,31 @@ import yapl.impl.CodeGenImpl;
 import yapl.impl.YAPLAttrib;
 import yapl.impl.YAPLSymbol;
 import yapl.impl.YAPLSymbolTable;
+import yapl.impl.BackendMJ;
 import yapl.interfaces.*;
 import yapl.lib.*;
 import java.io.StringReader;
 import java.util.ArrayList;import java.util.List;
 
+import java.io.FileOutputStream;
 /** Simple brace matcher. */
 public class  Yapl{
 
     private static Symboltable symboltable = new YAPLSymbolTable();
-    private static CodeGen codegen = new CodeGenImpl();
+    private static CodeGen codegen; //= new CodeGenImpl();
     public static final String PREDEFINED_PROCEDURES =
                          			"Procedure void writeint(int i);" +
                          			"Procedure void writebool(bool b);" +
                          			"Procedure void writeln();" +
                          			"Procedure int readint();";
-  /** Main entry point. */
+  public void init(BackendBinSM backend){
+      symboltable = new YAPLSymbolTable();
+      codegen = new CodeGenImpl(backend);
+  }
+
+    /** Main entry point. */
   public static void main(String args[]) throws ParseException {
-      Yapl parser = null;
+      Yapl parser = new Yapl(new StringReader(PREDEFINED_PROCEDURES));//null;
 
       try {
           parser.ReInit(new StringReader(PREDEFINED_PROCEDURES));
@@ -62,14 +69,28 @@ public class  Yapl{
                 System.out.println ("Reading input ...");
                 parser.ReInit(System.in);
           }
-          else if(args.length == 1){
+          else if(args.length == 1 || args.length == 2){
                 System.out.println ("Reading the file " + args[0] + " ..." );
                 try {
+                  //parser.ReInit(new java.io.FileInputStream(args[0]));
+                  BackendMJ backend = new BackendMJ();
+                  parser.init(backend);
+                  parser.ReInit(new StringReader(PREDEFINED_PROCEDURES));
+                  parser.PredefinedProcedures();
                   parser.ReInit(new java.io.FileInputStream(args[0]));
+                  parser.Start();
+
+                  CompilerMessage.printOK(args[0]);
+                  backend.writeObjectFile(new FileOutputStream(args[1]));
+                  System.out.println("Output file " + args[1]);
                 }
                 catch(java.io.FileNotFoundException e) {
                   System.out.println ("The file " + args[0] + " was not found.");
                   return;
+                }
+                catch (java.io.IOException e){
+                    System.out.println("I/O Exception");
+                    return;
                 }
           }
           else {
@@ -240,6 +261,7 @@ Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
         {
             throw new ArrayLenNotArrayException(error);
         }
+        codegen.allocVariable(s);
         return codegen.arrayLength(retval);
     }
 }
@@ -399,21 +421,37 @@ void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;
 }
 
 
-void IfStatement() throws YAPLException : {Token t; Attrib clause;}{
+void IfStatement() throws YAPLException : {Token t; Attrib clause; String elseLab = codegen.newLabel(); String end = codegen.newLabel();}{
     <IF> clause = Expr()
     {
         if (!(clause.getType() instanceof BoolType))
               	throw new CondNotBoolException(token);
+        codegen.branchIfFalse(clause, elseLab);
     }
-    <THEN> StatementList() [<ELSE> StatementList()] <ENDIF>
+    <THEN> StatementList()
+    {
+        codegen.jump(end);
+        codegen.assignLabel(elseLab);
+    }[<ELSE> StatementList()] <ENDIF>
+    {
+        codegen.assignLabel(end);
+    }
 }
-void WhileStatement() throws YAPLException : {Token t; Attrib clause;}{
+void WhileStatement() throws YAPLException : {Token t; Attrib clause; String start = codegen.newLabel(); String end = codegen.newLabel();}{
+    {
+        codegen.assignLabel(start);
+    }
     <WHILE> clause = Expr()
     {
         if (!(clause.getType() instanceof BoolType))
             throw new CondNotBoolException(token);
+        codegen.branchIfFalse(clause, end);
     }
-    <DO> StatementList() <ENDWHILE>
+    <DO> StatementList()
+    {
+        codegen.jump(start);
+        codegen.assignLabel(end);
+    }<ENDWHILE>
 }
 void ReturnStatement() throws YAPLException : {Attrib arg = null; Symbol s = symboltable.getNearestParentSymbol(Symbol.Procedure); boolean ret = false;}{
     <RETURN> [arg = Expr()
@@ -431,10 +469,15 @@ void ReturnStatement() throws YAPLException : {Attrib arg = null; Symbol s = sym
         if (s.getType() != null && !ret)
             	throw new InvalidReturnTypeException(s, token);
         s.setReturnSeen(true);
+        codegen.returnFromProc(s, arg);
     }
 }
-void WriteStatement() throws YAPLException : {Token t;}{
-    <WRITE> <STRING>
+void WriteStatement() throws YAPLException : {Token t;}
+{
+    <WRITE> t = <STRING>
+    {
+        codegen.writeString(t.image);
+    }
 }
 void Statement() throws YAPLException : {Token t;}{
     IfStatement() | WhileStatement() | ReturnStatement() | WriteStatement() | LOOKAHEAD(2) Assignment() | ProcedureCall(false) | Block()
@@ -590,10 +633,13 @@ void Procedure() throws YAPLException : {Token t; Token x; Type type; List<Symbo
     }
     "(" [param = FormalParamList()]  ")"
     {
-        if(param != null){s.setParam(param);}
+    if(param != null){s.setParam(param);}
+
+    codegen.enterProc(s);
     }
     Block() t = <IDENT>
     {
+        codegen.exitProc(s);
         Symbol parent = symboltable.getNearestParentSymbol(Symbol.Procedure);
         if(!parent.getName().equals(t.image)){
             throw new EndIdentifierMismatchException(parent, t.image);
@@ -610,8 +656,12 @@ void Program() throws YAPLException : {Token t; Token x;}{
         symboltable.openScope(true);
         symboltable.setParentSymbol(s);
     }
-    (Decl() | Procedure() )* <BEGIN> StatementList() <END>  x = <IDENT>
+    (Decl() | Procedure() )* <BEGIN>
+    {
+        codegen.enterProc(s);
+    } StatementList() <END>  x = <IDENT>
      {
+        codegen.exitProc(s);
         if(!t.image.equals(x.image)){
             throw new EndIdentifierMismatchException(s, x.image);
         symboltable.closeScope();

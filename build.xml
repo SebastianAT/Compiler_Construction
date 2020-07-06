@@ -20,8 +20,10 @@ User-relevant properties: (customize to your environment)
 	<property name="ant-contrib" location="ant/ant-contrib.jar"/>
     <property name="mj-jar" location="mjvm/mj.jar"/>
 	<property name="version" value="typecheck"/>
-	<property name="yapl" location="testfiles/${version}/test51.yapl"/>
+	<!--<property name="yapl" location="testfiles/${version}/test39.yapl"/>-->
+	<property name="yapl" location="testfiles/codegen/test01.yapl"/>
 	<property name="outfile" value="${yapl}.mj"/>
+	<!--<property name="outfile" value="testOutput.execlog"/>-->
 	<property name="log" value="${yapl}.log"/>
 	<property name="grammar" value="Yapl"/>
 
@@ -66,6 +68,7 @@ User-relevant properties: (customize to your environment)
 				<pathelement path="${java.class.path}"/>
 			</classpath>
 			<arg value="${yapl}"/>
+				<arg value="${outfile}"/>
 			<!--<arg value="${log}"/>-->
 		</java>
         <record name="${log}" action="stop"/>
