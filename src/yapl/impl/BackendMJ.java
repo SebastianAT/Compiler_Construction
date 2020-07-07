@@ -29,6 +29,31 @@ public class BackendMJ implements BackendBinSM {
         flsp = new ArrayList<Integer>();
         dimaddr = new ArrayList<Integer>();
 
+        //writeln
+        enterProc("writeln", 0, false);
+        int addr = allocStringConstant("\n");
+        writeString(addr);
+        exitProc("writeln");
+
+        //writeint
+        enterProc("writeint", 1, false);
+        loadWord(MemoryRegion.STACK, 0);
+        writeInteger();
+        exitProc("writeint");
+
+        //writebool
+        enterProc("writebool", 1, false);
+        loadWord(MemoryRegion.STACK, 0);
+        int a = allocStringConstant("True");
+        int b = allocStringConstant("False");
+        branchIf(true, "writebool_true");
+        writeString(b);
+        jump("writebool");
+        assignLabel("writebool_true");
+        writeString(a);
+        exitProc("writebool");
+
+        //Todo: write predef proc readint
     }
 
     @Override

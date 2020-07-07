@@ -1,0 +1,32 @@
+<project name="MicroJava-VM" default="compile" basedir=".">
+
+	<!-- Java source directory -->
+    <property name="src" value="src"/>
+	
+	<!-- directory for compiled Java classes -->
+    <property name="build" value="classes"/>
+
+    <!-- the object file to execute -->
+    <property name="exe" location="test/simple2.mj"/>
+
+    <target name="init">
+        <mkdir dir="${build}"/>
+    </target>
+
+    <target name="compile" depends="init">
+        <javac srcdir="${src}" destdir="${build}" includeantruntime="false"/>
+    </target>
+
+    <target name="clean">
+        <delete dir="${build}"/>
+    </target>
+
+    <target name="run" depends="compile">
+        <java classname="MJ.Run" classpath="${build}">
+            <arg value="${exe}"/>
+        </java>
+    </target>
+
+    <!-- Add other target definitions here. -->
+	
+</project>

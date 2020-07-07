@@ -193,7 +193,7 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public void exitProc(Symbol proc) throws YAPLException {
-        backend.enterProc(proc.getName(), proc.getParam().size(), proc.isGlobal());
+        backend.exitProc(proc.getName());
     }
 
     @Override
