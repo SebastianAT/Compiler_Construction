@@ -210,16 +210,22 @@ Attrib Literal() throws YAPLException : {Token t; Attrib a;}{
     t = <TRUE>
     {
         a = new YAPLAttrib(new BoolType());
+        a.setOffset(((CodeGenImpl)codegen).storeConstant(true));
+        a.setConstant(true);
         return a;
     }
     | t = <FALSE>
     {
         a = new YAPLAttrib(new BoolType());
+        a.setOffset(((CodeGenImpl)codegen).storeConstant(false));
+        a.setConstant(true);
         return a;
     }
-    | <NUMBER>
+    | t = <NUMBER>
     {
         a = new YAPLAttrib(new IntType());
+        a.setOffset(((CodeGenImpl)codegen).storeConstant(Integer.parseInt(t.image)));
+        a.setConstant(true);
         return a;
     }
 }
@@ -253,7 +259,7 @@ Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
     if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
         throw new SymbolIllegalUseException(s);
     }
-    retval = new YAPLAttrib(s.getType());
+    retval = new YAPLAttrib(s);
     }
     [retval = Selector(retval) ]
     {
@@ -261,13 +267,14 @@ Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
         {
             throw new ArrayLenNotArrayException(error);
         }
-        codegen.allocVariable(s);
+        codegen.loadValue(retval);
         return codegen.arrayLength(retval);
     }
 }
 Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null;}{
     (retval = Literal()
     {
+        codegen.loadValue(retval);
         return retval;
     }
     | "(" retval = Expr() ")" | LOOKAHEAD(2) retval = ProcedureCall(true) | t = <IDENT>
@@ -276,9 +283,13 @@ Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null;}{
         if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Constant && s.getKind() != Symbol.Parameter){
             throw new SymbolIllegalUseException(s);
         }
-        retval = new YAPLAttrib(s.getType());
+        retval = new YAPLAttrib(s);
+        codegen.loadValue(retval);
     }
-    [retval = Selector(retval)] | retval = ArrayLen() )
+    [retval = Selector(retval)
+    {
+        ((CodeGenImpl)codegen).loadArrayElement();
+    }] | retval = ArrayLen() )
     {
        return retval;
     }
@@ -336,10 +347,12 @@ Attrib CondAndExpr() throws YAPLException : {Attrib retval; Token op; Attrib exp
         return retval;
     }
 }
-Attrib CreationExpr() throws YAPLException : {Attrib retval; Attrib index; Type type; Token error;}{
+Attrib CreationExpr() throws YAPLException : {Attrib retval; Attrib index; Type type; Token error; int arrdim = 0;}{
     error = <NEW> type = NonArrayType() ("[" index = Expr() error = "]"
     {
         type = new ArrayType(type);
+        codegen.storeArrayDim(arrdim, index);
+        arrdim++;
         if (!(index.getType() instanceof IntType))
         			throw new BadArraySelectorException(error);
     })*
@@ -407,13 +420,16 @@ Attrib ProcedureCall(boolean isFunc) throws YAPLException : {Token t; Token err;
 void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;Token error;}{
     t = <IDENT>
     {
-    Symbol s = symboltable.lookup(t.image);
-    target = new YAPLAttrib(s.getType());
-    if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
-        throw new SymbolIllegalUseException(s);
+        Symbol s = symboltable.lookup(t.image);
+        target = new YAPLAttrib(s);
+        if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Parameter){
+            throw new SymbolIllegalUseException(s);
+        }
     }
-}
-    [target = Selector(target) ] error = <ASSIGN> source = Expr()
+    [{
+        codegen.arrayOffset(target,null);
+    }
+    target = Selector(target) ] error = <ASSIGN> source = Expr()
     {
         TypeMismatchAssignException.errorToken = error;
         codegen.assign(target, source);
@@ -512,14 +528,12 @@ Type NonArrayType() throws YAPLException : {Token t; Type type; Symbol parent = 
     {
         Symbol s = symboltable.lookup(t.image);
         if(s.getKind() != Symbol.Typename){
-            //throw new NonArrayTypeException(s.getKind(), Symbol.Typename);
             throw new SymbolIllegalUseException(s);
         }
         type = s.getType();
         if(parent != null){
             if(t.image.equals(parent.getName())){
                 s.setType(parent.getType());
-                //System.out.println(t.image + " "+ ((RecordType)s.getType()).getFields().size());
             }
         }
     }
@@ -556,6 +570,7 @@ void ConstDecl() throws YAPLException : {Token t; Attrib a;}{
     }
     "=" a = Literal()
     {
+        s.setOffset(a.getOffset());
         s.setType(a.getType());
     }
     ";"
@@ -569,6 +584,7 @@ void VarDecl() throws YAPLException : {Type type; Token t; Token t2; Symbol s; S
         if(parent != null){
             ((RecordType)parent.getType()).addField(type,t.image);
         }
+        codegen.allocVariable(s);
     }
     ("," t2 = <IDENT>
     {
@@ -578,6 +594,7 @@ void VarDecl() throws YAPLException : {Type type; Token t; Token t2; Symbol s; S
         if(parent != null){
             ((RecordType)parent.getType()).addField(type,t2.image);
         }
+        codegen.allocVariable(s);
     }
     )* ";"
 }
@@ -609,13 +626,17 @@ Symbol FormalParam() throws YAPLException : {Token t; Type type;}{
         return s;
     }
 }
-List<Symbol> FormalParamList() throws YAPLException : {Token t; List<Symbol> param = new ArrayList<Symbol>(); Symbol s;}{
+List<Symbol> FormalParamList() throws YAPLException : {Token t; List<Symbol> param = new ArrayList<Symbol>(); Symbol s; int pos = 0;}{
     s = FormalParam()
     {
         param.add(s);
+        s.setOffset(pos);
+        pos++;
     } ("," s = FormalParam()
     {
         param.add(s);
+        s.setOffset(pos);
+        pos++;
     } )*
     {
         return param;

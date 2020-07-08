@@ -28,7 +28,11 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public byte loadValue(Attrib attr) throws YAPLException {
-        // TODO
+        if(attr.isGlobal() || attr.isConstant()){
+            backend.loadWord(MemoryRegion.STATIC,attr.getOffset());
+        } else{
+            backend.loadWord(MemoryRegion.STACK,attr.getOffset());
+        }
         return 0;
     }
 
@@ -64,6 +68,7 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib allocArray(ArrayType arrayType) throws YAPLException {
+        backend.allocArray();
         YAPLAttrib attrib = new YAPLAttrib(arrayType);
         attrib.setKind(Attrib.RegAddress);
         return attrib;
@@ -83,7 +88,12 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public void arrayOffset(Attrib arr, Attrib index) throws YAPLException {
-        backend.loadWord(MemoryRegion.STACK, arr.getOffset());
+        if(arr.isGlobal()){
+            backend.loadWord(MemoryRegion.STATIC, arr.getOffset());
+        } else {
+            backend.loadWord(MemoryRegion.STACK, arr.getOffset());
+        }
+
     }
 
     @Override
@@ -105,7 +115,12 @@ public class CodeGenImpl implements CodeGen {
         }
 
         if(lvalue.getKind() != Attrib.ArrayElement){
-            backend.storeWord(MemoryRegion.STACK, lvalue.getOffset());
+            if(lvalue.isGlobal()){
+                backend.storeWord(MemoryRegion.STATIC, lvalue.getOffset());
+            }else{
+                backend.storeWord(MemoryRegion.STACK, lvalue.getOffset());
+            }
+
         } else {
             backend.storeArrayElement();
         }
@@ -198,7 +213,7 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public void returnFromProc(Symbol proc, Attrib returnVal) throws YAPLException {
-        backend.jump(proc.getName() + "_end");
+        backend.jump(proc.getName());
     }
 
     @Override
@@ -224,5 +239,17 @@ public class CodeGenImpl implements CodeGen {
     @Override
     public void jump(String label) {
         backend.jump(label);
+    }
+
+    public int storeConstant(boolean value){
+        return storeConstant(backend.boolValue(value));
+    }
+
+    public int storeConstant(int value){
+        return ((BackendMJ)backend).allocConstant(value);
+    }
+
+    public void loadArrayElement(){
+        backend.loadArrayElement();
     }
 }

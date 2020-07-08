@@ -1,6 +1,7 @@
 package yapl.impl;
 
 import yapl.interfaces.Attrib;
+import yapl.interfaces.Symbol;
 import yapl.lib.Type;
 
 public class YAPLAttrib implements Attrib {
@@ -15,6 +16,17 @@ public class YAPLAttrib implements Attrib {
 
     public YAPLAttrib(Type type) {
         this.type = type;
+    }
+
+    public YAPLAttrib(Symbol s){
+        this.type = s.getType();
+        this.offset = s.getOffset();
+        this.isReadonly = s.isReadonly();
+        this.isGlobal = s.isGlobal();
+        if(s.getKind() == Symbol.Constant){
+            this.isConstant = true;
+        }
+
     }
 
     @Override

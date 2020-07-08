@@ -4,6 +4,7 @@ import yapl.interfaces.*;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -48,10 +49,10 @@ public class BackendMJ implements BackendBinSM {
         int b = allocStringConstant("False");
         branchIf(true, "writebool_true");
         writeString(b);
-        jump("writebool");
+        jump("writebool_end");
         assignLabel("writebool_true");
         writeString(a);
-        exitProc("writebool");
+        exitProc("writebool_end");
 
         //Todo: write predef proc readint
     }
@@ -105,6 +106,15 @@ public class BackendMJ implements BackendBinSM {
         int addr = sb.size()/wordSize();
         for (int i = 0; i < words * wordSize(); i++) {
             sb.add((byte) 0);
+        }
+        return addr;
+    }
+
+    public int allocConstant(int value){
+        byte[] bytes = ByteBuffer.allocate(4).putInt(value).array();
+        int addr = sb.size()/wordSize();
+        for (int i = 0; i < bytes.length; i++) {
+            sb.add(bytes[i]);
         }
         return addr;
     }

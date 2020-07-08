@@ -26,6 +26,7 @@ public class YAPLSymbolTable implements Symboltable {
             throw new SymbolNameNullException();
         }
         currentScope.addSymbol(s);
+        if(currentScope.isGlobal()) s.setGlobal(true);
     }
 
     @Override
