@@ -213,7 +213,7 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public void returnFromProc(Symbol proc, Attrib returnVal) throws YAPLException {
-        backend.jump(proc.getName());
+        backend.jump(proc.getName() + "_end");
     }
 
     @Override

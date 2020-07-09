@@ -52,7 +52,7 @@ public class BackendMJ implements BackendBinSM {
         jump("writebool_end");
         assignLabel("writebool_true");
         writeString(a);
-        exitProc("writebool_end");
+        exitProc("writebool");
 
         //Todo: write predef proc readint
     }
@@ -70,8 +70,8 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void assignLabel(String label) {
-        if (!labels.containsKey(label)) {
-            labels.put(label, cb.size());
+
+
             if (backpatching.containsKey(label)) {
                 for (int addr : backpatching.get(label)) {
                     byte base = (byte) 0xFF;
@@ -79,9 +79,8 @@ public class BackendMJ implements BackendBinSM {
                     cb.set(addr + 1, (byte) (base & cb.size()));
                 }
             }
-        } else {
-            //Label is already used
-        }
+        labels.put(label, cb.size());
+
     }
 
     @Override
@@ -353,11 +352,12 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void exitProc(String label) {
-        assignLabel(label);
+        assignLabel(label + "_end");
         putBytes(49, 1);
         putBytes(47, 1);
         flsp.remove(inception);
         inception--;
+
 
     }
 
@@ -367,6 +367,7 @@ public class BackendMJ implements BackendBinSM {
     }
 
     private static byte[] generate4ByteArray(int value) {
+
         byte[] b = new byte[4];
         for (int i = 0; i < 4; i++) {
             int offset = (b.length - 1 - i) * 8;
@@ -382,6 +383,7 @@ public class BackendMJ implements BackendBinSM {
     }
 
     private int getAddr(String label) {
+
         if (!labels.containsKey(label)) {
             backpatch(label, cb.size());
             return 0;
