@@ -437,7 +437,7 @@ void Assignment() throws YAPLException : {Token t; Attrib target; Attrib source;
 }
 
 
-void IfStatement() throws YAPLException : {Token t; Attrib clause; String elseLab = codegen.newLabel(); String end = codegen.newLabel();}{
+void IfStatement() throws YAPLException : {Token t; Attrib clause; String elseLab = codegen.newLabel(); String endIf = codegen.newLabel();}{
     <IF> clause = Expr()
     {
         if (!(clause.getType() instanceof BoolType))
@@ -446,11 +446,11 @@ void IfStatement() throws YAPLException : {Token t; Attrib clause; String elseLa
     }
     <THEN> StatementList()
     {
-        codegen.jump(end);
+        codegen.jump(endIf);
         codegen.assignLabel(elseLab);
     }[<ELSE> StatementList()] <ENDIF>
     {
-        codegen.assignLabel(end);
+        codegen.assignLabel(endIf);
     }
 }
 void WhileStatement() throws YAPLException : {Token t; Attrib clause; String start = codegen.newLabel(); String end = codegen.newLabel();}{

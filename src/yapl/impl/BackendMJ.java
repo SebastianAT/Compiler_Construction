@@ -72,13 +72,13 @@ public class BackendMJ implements BackendBinSM {
     public void assignLabel(String label) {
 
 
-            if (backpatching.containsKey(label)) {
-                for (int addr : backpatching.get(label)) {
-                    byte base = (byte) 0xFF;
-                    cb.set(addr, (byte) ((base << 8) & cb.size()));
-                    cb.set(addr + 1, (byte) (base & cb.size()));
-                }
+        if (backpatching.containsKey(label)) {
+            for (int addr : backpatching.get(label)) {
+                byte base = (byte) 0xFF;
+                cb.set(addr + 1, (byte) (base & cb.size()));
+                cb.set(addr, (byte) (((base << 8) & cb.size())>>8));
             }
+        }
         labels.put(label, cb.size());
 
     }
@@ -88,30 +88,32 @@ public class BackendMJ implements BackendBinSM {
         outStream.write('M');
         outStream.write('J');
         outStream.write(generate4ByteArray(cb.size()));
-        outStream.write(generate4ByteArray(sb.size()/wordSize()));
+        outStream.write(generate4ByteArray(sb.size() / wordSize()));
         outStream.write(generate4ByteArray(mainaddr));
 
-        for(Byte b : cb){
+        for (Byte b : cb) {
             outStream.write(b);
         }
 
         for (Byte b : sb) {
             outStream.write(b);
         }
+        System.out.println(labels.toString());
+        System.out.println(backpatching.toString());
     }
 
     @Override
     public int allocStaticData(int words) {
-        int addr = sb.size()/wordSize();
+        int addr = sb.size() / wordSize();
         for (int i = 0; i < words * wordSize(); i++) {
             sb.add((byte) 0);
         }
         return addr;
     }
 
-    public int allocConstant(int value){
+    public int allocConstant(int value) {
         byte[] bytes = ByteBuffer.allocate(4).putInt(value).array();
-        int addr = sb.size()/wordSize();
+        int addr = sb.size() / wordSize();
         for (int i = 0; i < bytes.length; i++) {
             sb.add(bytes[i]);
         }
@@ -125,7 +127,7 @@ public class BackendMJ implements BackendBinSM {
         int addr = allocStaticData(words);
         byte[] sbytes = string.getBytes();
         for (int i = 0; i < sbytes.length; i++) {
-            sb.set(addr*wordSize() + i, sbytes[i]);
+            sb.set(addr * wordSize() + i, sbytes[i]);
         }
         return addr;
     }
@@ -145,20 +147,45 @@ public class BackendMJ implements BackendBinSM {
 
     @Override
     public void storeArrayDim(int dim) {
-        if(dim != dimaddr.size()){
+        if (dim != dimaddr.size()) {
             //throw error
-        }else{
+        } else {
             dimaddr.add(allocStaticData(1));
-            storeWord(MemoryRegion.STATIC, dimaddr.get(dimaddr.size()-1));
+            storeWord(MemoryRegion.STATIC, dimaddr.get(dimaddr.size() - 1));
         }
     }
 
     @Override
     public void allocArray() {
-        loadWord(MemoryRegion.STATIC,dimaddr.get(0));
+        loadWord(MemoryRegion.STATIC, dimaddr.get(0));
         dimaddr.remove(0);
-        putBytes(32,1);
-        putBytes(1,1);
+        putBytes(32, 1);
+        putBytes(1, 1);
+    }
+
+    public void allocBoolArray() {
+        loadWord(MemoryRegion.STATIC, dimaddr.get(0));
+        dimaddr.remove(0);
+        putBytes(32, 1);
+        putBytes(0, 1);
+    }
+
+    public void allocDimArray(int dim, boolean isbool) {
+        if(dim == 1){
+            if(isbool){
+
+            }
+            else {
+
+            }
+        }
+        else{
+
+        }
+        loadWord(MemoryRegion.STATIC, dimaddr.get(0));
+        dimaddr.remove(0);
+        putBytes(32, 1);
+        putBytes(1, 1);
     }
 
     @Override

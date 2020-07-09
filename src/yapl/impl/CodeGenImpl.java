@@ -9,7 +9,7 @@ import yapl.lib.*;
 public class CodeGenImpl implements CodeGen {
 
     private BackendBinSM backend;
-    private int nrLabels;
+    private int nrLabels=0;
 
     public CodeGenImpl(BackendBinSM backend){
         this.backend = backend;
@@ -68,7 +68,8 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib allocArray(ArrayType arrayType) throws YAPLException {
-        backend.allocArray();
+        if(arrayType.getElement() instanceof  IntType)backend.allocArray();
+        if(arrayType.getElement() instanceof  BoolType)((BackendMJ)backend).allocBoolArray();
         YAPLAttrib attrib = new YAPLAttrib(arrayType);
         attrib.setKind(Attrib.RegAddress);
         return attrib;

@@ -1,9 +1,9 @@
 package yapl.lib;
 
 public class ArrayType extends Type {
-    private Type element;
+    private Type element; //Elements of lowest level array (bottom level)
     private int dim;
-    private Type subarray;
+    private Type subarray; //Elements of next lower level
 
     public ArrayType(Type type) {
         if(type instanceof ArrayType){
