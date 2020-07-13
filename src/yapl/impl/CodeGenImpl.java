@@ -9,9 +9,9 @@ import yapl.lib.*;
 public class CodeGenImpl implements CodeGen {
 
     private BackendBinSM backend;
-    private int nrLabels=0;
+    private int nrLabels = 0;
 
-    public CodeGenImpl(BackendBinSM backend){
+    public CodeGenImpl(BackendBinSM backend) {
         this.backend = backend;
     }
 
@@ -28,17 +28,17 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public byte loadValue(Attrib attr) throws YAPLException {
-        if(attr.isGlobal() || attr.isConstant()){
-            backend.loadWord(MemoryRegion.STATIC,attr.getOffset());
-        } else{
-            backend.loadWord(MemoryRegion.STACK,attr.getOffset());
+        if (attr.isGlobal() || attr.isConstant()) {
+            backend.loadWord(MemoryRegion.STATIC, attr.getOffset());
+        } else {
+            backend.loadWord(MemoryRegion.STACK, attr.getOffset());
         }
         return 0;
     }
 
     @Override
     public byte loadAddress(Attrib attr) throws YAPLException {
-        // TODO
+        backend.loadWord(MemoryRegion.HEAP, attr.getOffset());
         return 0;
     }
 
@@ -49,7 +49,7 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public void allocVariable(Symbol sym) throws YAPLException {
-        if(sym.isGlobal()){
+        if (sym.isGlobal()) {
             sym.setOffset(backend.allocStaticData(1));
         } else {
             sym.setOffset(backend.allocStack(1));
@@ -68,15 +68,15 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib allocArray(ArrayType arrayType) throws YAPLException {
-        if(arrayType.getElement() instanceof  IntType)backend.allocArray();
-        if(arrayType.getElement() instanceof  BoolType)((BackendMJ)backend).allocBoolArray();
+        if (arrayType.getElement() instanceof IntType || arrayType.getElement() instanceof RecordType) backend.allocArray();
+        if (arrayType.getElement() instanceof BoolType) ((BackendMJ) backend).allocBoolArray();
         YAPLAttrib attrib = new YAPLAttrib(arrayType);
         attrib.setKind(Attrib.RegAddress);
         return attrib;
     }
 
     public Attrib alloc2DArray(ArrayType arrayType) throws YAPLException {
-        ((BackendMJ)backend).alloc2DimArray(arrayType.getElement() instanceof BoolType);
+        ((BackendMJ) backend).alloc2DimArray(arrayType.getElement() instanceof BoolType);
         YAPLAttrib attrib = new YAPLAttrib(arrayType);
         attrib.setKind(Attrib.RegAddress);
         return attrib;
@@ -86,6 +86,7 @@ public class CodeGenImpl implements CodeGen {
     public Attrib allocRecord(RecordType recordType) throws YAPLException {
         YAPLAttrib attrib = new YAPLAttrib(recordType);
         attrib.setKind(Attrib.RecordField);
+        backend.allocHeap(recordType.getFields().size());
         return attrib;
     }
 
@@ -96,7 +97,7 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public void arrayOffset(Attrib arr, Attrib index) throws YAPLException {
-        if(arr.isGlobal()){
+        if (arr.isGlobal()) {
             backend.loadWord(MemoryRegion.STATIC, arr.getOffset());
         } else {
             backend.loadWord(MemoryRegion.STACK, arr.getOffset());
@@ -117,31 +118,31 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public void assign(Attrib lvalue, Attrib expr) throws YAPLException {
-        if (!lvalue.getType().isCompatible(expr.getType()))
-        {
+        if (!lvalue.getType().isCompatible(expr.getType())) {
             throw new TypeMismatchAssignException();
         }
 
-        if(lvalue.getKind() != Attrib.ArrayElement){
-            if(lvalue.isGlobal()){
+        if (lvalue.getKind() == Attrib.ArrayElement) {
+            backend.storeArrayElement();
+        } else if (lvalue.getKind() == Attrib.RecordField) {
+            backend.storeWord(MemoryRegion.HEAP, lvalue.getOffset());
+        } else {
+            if (lvalue.isGlobal()) {
                 backend.storeWord(MemoryRegion.STATIC, lvalue.getOffset());
-            }else{
+            } else {
                 backend.storeWord(MemoryRegion.STACK, lvalue.getOffset());
             }
-
-        } else {
-            backend.storeArrayElement();
         }
     }
 
     @Override
     public Attrib op1(Token op, Attrib x) throws YAPLException {
-        if(op != null){
-            if(!(x.getType() instanceof IntType)){
+        if (op != null) {
+            if (!(x.getType() instanceof IntType)) {
                 throw new IllegalOp1TypeException(op);
             }
 
-            if(op.image == "-"){
+            if (op.image == "-") {
                 backend.neg();
             }
         }
@@ -150,29 +151,29 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib op2(Attrib x, Token op, Attrib y) throws YAPLException {
-        if(op.kind == Yapl.OR || op.kind == Yapl.AND ){
+        if (op.kind == Yapl.OR || op.kind == Yapl.AND) {
             if (!(x.getType() instanceof BoolType && y.getType() instanceof BoolType))
                 throw new IllegalOp2TypeException(op);
         }
-        if(!(x.getType().isCompatible(y.getType()))){
+        if (!(x.getType().isCompatible(y.getType()))) {
             throw new IllegalOp2TypeException(op);
         }
 
-        if(op.image == "*"){
+        if (op.image == "*") {
             backend.mul();
-        } else if(op.image == "+"){
+        } else if (op.image == "+") {
             backend.add();
-        } else if(op.image == "-"){
+        } else if (op.image == "-") {
             backend.sub();
-        } else if(op.image == "%"){
+        } else if (op.image == "%") {
             backend.mod();
-        } else if(op.image == "/"){
+        } else if (op.image == "/") {
             backend.div();
         }
 
-        if(op.kind == Yapl.AND){
+        if (op.kind == Yapl.AND) {
             backend.and();
-        } else if(op.kind == Yapl.OR){
+        } else if (op.kind == Yapl.OR) {
             backend.or();
         }
         return x;
@@ -180,17 +181,17 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib relOp(Attrib x, Token op, Attrib y) throws YAPLException {
-        if(!(x.getType() instanceof IntType && y.getType() instanceof IntType)){
+        if (!(x.getType() instanceof IntType && y.getType() instanceof IntType)) {
             throw new IllegalRelOpTypeException(op);
         }
 
-        if(op.image == ">"){
+        if (op.image == ">") {
             backend.isGreater();
-        } else if(op.image == "<"){
+        } else if (op.image == "<") {
             backend.isLess();
-        } else if(op.image == ">="){
+        } else if (op.image == ">=") {
             backend.isGreaterOrEqual();
-        } else if(op.image == "<="){
+        } else if (op.image == "<=") {
             backend.isLessOrEqual();
         }
         return new YAPLAttrib(new BoolType());
@@ -198,11 +199,11 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public Attrib equalOp(Attrib x, Token op, Attrib y) throws YAPLException {
-        if(!(x.getType().isCompatible(y.getType()))){
+        if (!(x.getType().isCompatible(y.getType()))) {
             throw new IllegalEqualOpTypeException(op);
         }
 
-        if(op.image == "=="){
+        if (op.image == "==") {
             backend.isEqual();
         }
         // TODO not Equal?
@@ -232,14 +233,14 @@ public class CodeGenImpl implements CodeGen {
 
     @Override
     public void writeString(String string) throws YAPLException {
-        String temp = string.substring(1, string.length()-1);
+        String temp = string.substring(1, string.length() - 1);
         int addr = backend.allocStringConstant(temp);
         backend.writeString(addr);
     }
 
     @Override
     public void branchIfFalse(Attrib condition, String label) throws YAPLException {
-        if(condition.getKind() == Attrib.Invalid){
+        if (condition.getKind() == Attrib.Invalid) {
             backend.branchIf(false, label);
         }
     }
@@ -249,15 +250,15 @@ public class CodeGenImpl implements CodeGen {
         backend.jump(label);
     }
 
-    public int storeConstant(boolean value){
+    public int storeConstant(boolean value) {
         return storeConstant(backend.boolValue(value));
     }
 
-    public int storeConstant(int value){
-        return ((BackendMJ)backend).allocConstant(value);
+    public int storeConstant(int value) {
+        return ((BackendMJ) backend).allocConstant(value);
     }
 
-    public void loadArrayElement(){
+    public void loadArrayElement() {
         backend.loadArrayElement();
     }
 }

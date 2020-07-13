@@ -230,7 +230,10 @@ Attrib Literal() throws YAPLException : {Token t; Attrib a;}{
     }
 }
 Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token error2; Attrib index; Attrib retVal;}{
-    error1 = "[" index = Expr() error2 = "]"
+    error1 = "["
+    {
+        if(a.getType() instanceof ArrayType && a.getKind() == Attrib.RecordField) codegen.loadAddress(a);
+    } index = Expr() error2 = "]"
     {
 
         if (!(index.getType() instanceof IntType))
@@ -249,12 +252,20 @@ Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token e
     {
         return retVal;
     }
-    | error1 = "." t = <IDENT> [a = Selector(a)]
+    | error1 = "." t = <IDENT>
     {
         if(a.getType() instanceof RecordType){
-                return new YAPLAttrib(((RecordType)a.getType()).returnType(t.image));
+            if(a.getKind()==Attrib.ArrayElement) ((CodeGenImpl)codegen).loadArrayElement();
+            retVal = new YAPLAttrib(((RecordType)a.getType()).returnType(t.image));
+            retVal.setOffset(((RecordType)a.getType()).getFnames().indexOf(t.image));
+            retVal.setKind(Attrib.RecordField);
+        }else{
+            throw new SelectorNotRecordException(error1);
         }
-        throw new SelectorNotRecordException(error1);
+    }
+    [retVal = Selector(retVal)]
+    {
+        return retVal;
     }
 }
 Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
@@ -273,11 +284,11 @@ Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
         {
             throw new ArrayLenNotArrayException(error);
         }
-
+        if(retval.getKind()==Attrib.RecordField) codegen.loadAddress(retval);
         return codegen.arrayLength(retval);
     }
 }
-Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null;}{
+Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null; Symbol s;}{
     (retval = Literal()
     {
         codegen.loadValue(retval);
@@ -285,7 +296,7 @@ Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null;}{
     }
     | "(" retval = Expr() ")" | LOOKAHEAD(2) retval = ProcedureCall(true) | t = <IDENT>
     {
-        Symbol s = symboltable.lookup(t.image);
+        s = symboltable.lookup(t.image);
         if(s.getKind() != Symbol.Variable && s.getKind() != Symbol.Constant && s.getKind() != Symbol.Parameter){
             throw new SymbolIllegalUseException(s);
         }
@@ -294,7 +305,10 @@ Attrib PrimaryExpr() throws YAPLException : {Token t; Attrib retval = null;}{
     }
     [retval = Selector(retval)
     {
-        ((CodeGenImpl)codegen).loadArrayElement();
+        /*if(s.getType() instanceof ArrayType)  ((CodeGenImpl)codegen).loadArrayElement();
+        if(s.getType() instanceof RecordType) codegen.loadAddress(retval);*/
+        if(retval.getKind()== Attrib.ArrayElement)  ((CodeGenImpl)codegen).loadArrayElement();
+        if(retval.getKind()== Attrib.RecordField) codegen.loadAddress(retval);
     }] | retval = ArrayLen() )
     {
        return retval;
@@ -364,7 +378,7 @@ Attrib CreationExpr() throws YAPLException : {Attrib retval; Attrib index; Type 
     })*
     {
         if(type instanceof RecordType){
-            return new YAPLAttrib(type);
+            return codegen.allocRecord((RecordType) type);
         }
         if(type instanceof ArrayType){
             if(arrdim > 1){
@@ -609,12 +623,18 @@ void VarDecl() throws YAPLException : {Type type; Token t; Token t2; Symbol s; S
     }
     )* ";"
 }
-void TypeDecl() throws YAPLException : {Token t;}{
+void TypeDecl() throws YAPLException : {Token t; Symbol parent = symboltable.getNearestParentSymbol(Symbol.Procedure);}{
     <RECORD> t = <IDENT>
     {
         Symbol s = new YAPLSymbol(t.image, Symbol.Typename);
         symboltable.addSymbol(s);
-        symboltable.openScope(false);
+        if(parent != null){
+            symboltable.openScope(false);
+        }
+        else{
+            symboltable.openScope(true);
+        }
+
         symboltable.setParentSymbol(s);
         s.setType(new RecordType(t.image));
     }
