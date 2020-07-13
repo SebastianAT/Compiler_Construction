@@ -20,7 +20,7 @@ User-relevant properties: (customize to your environment)
 	<property name="ant-contrib" location="ant/ant-contrib.jar"/>
     <property name="mj-jar" location="mjvm/mj.jar"/>
 	<property name="version" value="codegen"/>
-	<property name="yapl" location="testfiles/${version}/test20.yapl"/>
+	<property name="yapl" location="testfiles/${version}/test21.yapl"/>
 	<property name="outfile" value="${yapl}.mj"/>
 	<!--<property name="outfile" value="testOutput.execlog"/>-->
 	<property name="log" value="${yapl}.log"/>

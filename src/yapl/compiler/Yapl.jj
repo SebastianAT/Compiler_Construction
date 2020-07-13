@@ -229,20 +229,25 @@ Attrib Literal() throws YAPLException : {Token t; Attrib a;}{
         return a;
     }
 }
-Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token error2; Attrib index; Attrib retval; Attrib first = a;}{
-    (error1 = "[" index = Expr() error2 = "]" [a = Selector(a)])
+Attrib Selector(Attrib a) throws YAPLException : {Token t; Token error1; Token error2; Attrib index; Attrib retVal;}{
+    error1 = "[" index = Expr() error2 = "]"
     {
-    if (!(index.getType() instanceof IntType))
-    			throw new BadArraySelectorException(error2);
-    if (a.getType() instanceof ArrayType)
+
+        if (!(index.getType() instanceof IntType))
+            			throw new BadArraySelectorException(error2);
+        if (a.getType() instanceof ArrayType)
+        {
+            if(((ArrayType)a.getType()).getSubarray() instanceof ArrayType) ((CodeGenImpl)codegen).loadArrayElement();
+            retVal = new YAPLAttrib(((ArrayType)a.getType()).getSubarray());
+            retVal.setOffset(a.getOffset());
+            retVal.setKind(Attrib.ArrayElement);
+            retVal.setGlobal(a.isGlobal());
+        }else{
+            throw new SelectorNotArrayException(error1);
+        }
+    }[retVal = Selector(retVal)]
     {
-        Attrib retVal = new YAPLAttrib(((ArrayType)a.getType()).getSubarray());
-        retVal.setOffset(a.getOffset());
-        retVal.setKind(Attrib.ArrayElement);
-        retVal.setGlobal(a.isGlobal());
         return retVal;
-    }
-    throw new SelectorNotArrayException(error1);
     }
     | error1 = "." t = <IDENT> [a = Selector(a)]
     {
@@ -260,6 +265,7 @@ Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
         throw new SymbolIllegalUseException(s);
     }
     retval = new YAPLAttrib(s);
+    codegen.loadValue(retval);
     }
     [retval = Selector(retval) ]
     {
@@ -267,7 +273,7 @@ Attrib ArrayLen() throws YAPLException : {Token t; Attrib retval; Token error;}{
         {
             throw new ArrayLenNotArrayException(error);
         }
-        codegen.loadValue(retval);
+
         return codegen.arrayLength(retval);
     }
 }
@@ -361,7 +367,12 @@ Attrib CreationExpr() throws YAPLException : {Attrib retval; Attrib index; Type 
             return new YAPLAttrib(type);
         }
         if(type instanceof ArrayType){
-            return codegen.allocArray((ArrayType)type);
+            if(arrdim > 1){
+                return ((CodeGenImpl)codegen).alloc2DArray((ArrayType)type);
+            }
+            else{
+                return codegen.allocArray((ArrayType)type);
+            }
         }
         throw new InvalidCreationTypeException(error);
     }

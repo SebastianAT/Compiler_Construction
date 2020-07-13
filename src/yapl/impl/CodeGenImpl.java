@@ -75,6 +75,13 @@ public class CodeGenImpl implements CodeGen {
         return attrib;
     }
 
+    public Attrib alloc2DArray(ArrayType arrayType) throws YAPLException {
+        ((BackendMJ)backend).alloc2DimArray(arrayType.getElement() instanceof BoolType);
+        YAPLAttrib attrib = new YAPLAttrib(arrayType);
+        attrib.setKind(Attrib.RegAddress);
+        return attrib;
+    }
+
     @Override
     public Attrib allocRecord(RecordType recordType) throws YAPLException {
         YAPLAttrib attrib = new YAPLAttrib(recordType);

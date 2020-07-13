@@ -76,7 +76,7 @@ public class BackendMJ implements BackendBinSM {
             for (int addr : backpatching.get(label)) {
                 byte base = (byte) 0xFF;
                 cb.set(addr + 1, (byte) (base & cb.size()));
-                cb.set(addr, (byte) (((base << 8) & cb.size())>>8));
+                cb.set(addr, (byte) (((base << 8) & cb.size()) >> 8));
             }
         }
         labels.put(label, cb.size());
@@ -98,8 +98,6 @@ public class BackendMJ implements BackendBinSM {
         for (Byte b : sb) {
             outStream.write(b);
         }
-        System.out.println(labels.toString());
-        System.out.println(backpatching.toString());
     }
 
     @Override
@@ -170,22 +168,48 @@ public class BackendMJ implements BackendBinSM {
         putBytes(0, 1);
     }
 
-    public void allocDimArray(int dim, boolean isbool) {
-        if(dim == 1){
-            if(isbool){
-
-            }
-            else {
-
-            }
-        }
-        else{
-
-        }
+    public void alloc2DimArray(boolean isbool) {
+        //Create Array
         loadWord(MemoryRegion.STATIC, dimaddr.get(0));
-        dimaddr.remove(0);
         putBytes(32, 1);
         putBytes(1, 1);
+        //Store Array pointer
+        int array = allocStaticData(1);
+        storeWord(MemoryRegion.STATIC, array);
+        //Create iterator
+        int i = allocStaticData(1);
+        loadConst(0);
+        storeWord(MemoryRegion.STATIC, i);
+
+        assignLabel("_Loop");
+
+        //Create 2nd dim arry and store it
+        loadWord(MemoryRegion.STATIC, array);
+        loadWord(MemoryRegion.STATIC, i);
+        if (isbool) {
+            loadWord(MemoryRegion.STATIC, dimaddr.get(1));
+            putBytes(32, 1);
+            putBytes(0, 1);
+        } else {
+            loadWord(MemoryRegion.STATIC, dimaddr.get(1));
+            putBytes(32, 1);
+            putBytes(1, 1);
+        }
+        storeArrayElement();
+        // i++
+        loadWord(MemoryRegion.STATIC, i);
+        loadConst(1);
+        add();
+        storeWord(MemoryRegion.STATIC, i);
+        // i<array lenght
+        loadWord(MemoryRegion.STATIC, i);
+        loadWord(MemoryRegion.STATIC, dimaddr.get(0));
+        isLess();
+        branchIf(true, "_Loop");
+
+        loadWord(MemoryRegion.STATIC, array);
+        dimaddr.remove(1);
+        dimaddr.remove(0);
     }
 
     @Override
