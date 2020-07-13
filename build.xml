@@ -60,7 +60,7 @@ User-relevant properties: (customize to your environment)
 		<javac srcdir="${src}" destdir="${build}"/>
 	</target>
 	<target name="run" depends="compile-java" description="run the YAPL compiler, writing compiler messages to ${log}">
-        <record name="${log}" action="start" append="false" />
+        <record name="${log}" action="start" append="false" emacsmode="true"/>
         <java classname="yapl.compiler.${grammar}">
 			<classpath>
 				<pathelement location="${build}"/>
